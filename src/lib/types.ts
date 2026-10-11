@@ -109,4 +109,6 @@ export type TraceData = {
   links: Link[];
   decisions: Decision[];
   disputes: Dispute[];
+  /** "earlierId:laterId" pairs a person marked as not conflicting. */
+  dismissed?: string[];
 };

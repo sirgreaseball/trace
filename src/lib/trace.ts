@@ -538,7 +538,7 @@ export function health(d: TraceData, now: number) {
   if (cov.total && cov.pct < 40) flags.push({ level: "warn", text: `Only ${cov.pct}% of stories traced to working code` });
   if (orphans >= 5) flags.push({ level: "info", text: `${orphans} commits not linked to any story` });
   if (open) flags.push({ level: "warn", text: `${open} open ${open === 1 ? "dispute" : "disputes"}` });
-  const clash = conflicts(d.decisions).length;
+  const clash = conflicts(d.decisions, new Set(d.dismissed ?? [])).length;
   if (clash) flags.push({ level: "info", text: `${clash} decision ${clash === 1 ? "pair" : "pairs"} may conflict` });
   if (idleDays !== null && idleDays >= 5) flags.push({ level: "warn", text: `No activity for ${idleDays} days` });
 
