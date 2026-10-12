@@ -34,7 +34,7 @@ export default async function ReceiptPage(props: PageProps<"/w/[id]/receipts/[us
           <div className="receipt-paper px-6 pt-8 pb-10 sm:px-8">
             <header className="text-center">
               <p className="mono text-[11px] tracking-[0.3em]">TRACE · CONTRIBUTION RECEIPT</p>
-              <p className="mt-3 text-[22px] font-semibold tracking-tight">{member.profile.name}</p>
+              <p className="display mt-3 text-[34px]">{member.profile.name}</p>
               <p className="mono mt-1 text-[11px] opacity-70">
                 {v.ws.name} · {v.ws.course || v.key}
               </p>

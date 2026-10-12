@@ -50,7 +50,7 @@ export default async function StoryPage(props: PageProps<"/w/[id]/stories/[n]">)
       <header className="flex flex-wrap items-start justify-between gap-4 pb-6">
         <div className="min-w-0">
           <p className="mono mb-2 text-[12px] text-fg-3">{ref(v.key, t.story.number)}</p>
-          <h1 className="text-[28px] leading-tight font-semibold">{t.story.title}</h1>
+          <h1 className="display text-[clamp(36px,4.2vw,52px)] text-balance">{t.story.title}</h1>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <StateChip state={t.state} />
             <PriorityChip priority={t.story.priority} />

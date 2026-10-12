@@ -39,8 +39,10 @@ export default async function HomePage() {
       <main className="mx-auto max-w-[1180px] px-4 pt-6 pb-24 sm:px-8 sm:pt-10">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.03em] sm:text-[34px]">Hi, {firstName(profile.name)}</h1>
-            <p className="mt-1.5 text-fg-2">
+            <h1 className="display text-[clamp(44px,5.4vw,72px)]">
+              Hi, <em>{firstName(profile.name)}.</em>
+            </h1>
+            <p className="mt-3 text-fg-2">
               {mentoring.length > 0 ? `You mentor ${mentoring.length} ${mentoring.length === 1 ? "team" : "teams"}. Teams with the most warnings come first.` : "Your workspaces"}
             </p>
           </div>
@@ -132,7 +134,7 @@ export default async function HomePage() {
 
         {building.length > 0 && (
           <section className="mt-10">
-            {mentoring.length > 0 && <h2 className="mb-3 text-[13px] font-semibold text-fg-2">Your own workspaces</h2>}
+            {mentoring.length > 0 && <h2 className="eyebrow mb-3">Your own workspaces</h2>}
             <ul className="grid gap-3 md:grid-cols-2">
               {building.map(({ v, h, role }) => (
                 <li key={v.ws.id}>

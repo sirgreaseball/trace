@@ -21,16 +21,16 @@ export default async function EnterPage(props: PageProps<"/enter">) {
         <div className="pointer-events-none relative flex h-full flex-col justify-between p-12 [&_a]:pointer-events-auto">
           <Wordmark className="text-[#ece8de]" />
           <div className="max-w-md pb-[22vh]">
-            <p className="text-[52px] leading-[0.95] font-semibold tracking-[-0.045em]">
+            <p className="display text-[88px]">
               Every requirement,
               <br />
-              <span className="text-[#ee3524]">traced.</span>
+              <em>traced.</em>
             </p>
-            <p className="mt-6 text-[15px] leading-relaxed text-[#a1a1a4]">
+            <p className="mt-7 max-w-sm text-[15px] leading-relaxed text-[#a29d90]">
               Stories, tasks, commits and decisions, linked to the people who did the work.
             </p>
           </div>
-          <p className="text-xs text-[#6b6b70]">For student software teams and their mentors.</p>
+          <p className="eyebrow text-[#6c685e]">For student software teams and their mentors</p>
         </div>
       </section>
 
@@ -39,8 +39,9 @@ export default async function EnterPage(props: PageProps<"/enter">) {
           <Wordmark />
         </div>
         <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-10">
-          <h1 className="text-[28px] font-semibold">Welcome to Trace</h1>
-          <p className="mt-1.5 text-fg-2">Sign in, or try a demo team first.</p>
+          <p className="eyebrow">Sign in</p>
+          <h1 className="display mt-3 text-[48px]">Welcome to <em>Trace</em></h1>
+          <p className="mt-3 text-fg-2">Sign in, or try a demo team first.</p>
 
           <div className="mt-7 grid grid-cols-2 gap-2">
             <form action="/auth/demo" method="post">

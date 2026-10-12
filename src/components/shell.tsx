@@ -112,7 +112,7 @@ export function Shell({
                 active(n.href) ? "bg-bg-3 font-medium text-fg" : "text-fg-2 hover:bg-bg-3 hover:text-fg"
               }`}
             >
-              {active(n.href) && <span className="absolute top-2 bottom-2 -left-3 w-[2px] rounded-full bg-thread" />}
+              {active(n.href) && <span className="absolute top-1/2 -left-[13px] size-[5px] -translate-y-1/2 rounded-full bg-thread" />}
               <Icon name={n.icon} size={15} />
               <span className="flex-1">{n.label}</span>
               {!!n.badge && <span className="chip h-[18px] px-1.5 text-[10.5px] chip-thread num">{n.badge}</span>}
@@ -146,7 +146,7 @@ export function Shell({
           <Icon name="menu" />
         </button>
         <Mark size={18} className="text-thread" />
-        <span className="truncate font-medium">{current?.label ?? ws.name}</span>
+        <span className="display truncate text-[22px] leading-none">{current?.label ?? ws.name}</span>
         <button className="btn btn-ghost btn-icon ml-auto" onClick={() => setPaletteOpen(true)} aria-label="Search">
           <Icon name="search" />
         </button>
@@ -163,10 +163,11 @@ export function Shell({
 
       <main className="lg:pl-[240px] print:pl-0">
         {ws.demo && (
-          <div className="border-b border-line bg-thread-soft px-4 py-1.5 text-center text-[12.5px] text-thread-ink print:hidden">
-            Demo team. Change anything you like; it resets every six hours.{" "}
-            <Link href="/enter" className="underline underline-offset-2">
-              Start your own
+          <div className="mono flex items-center gap-2.5 border-b border-line px-4 py-2 text-[10.5px] tracking-[0.08em] text-fg-3 uppercase sm:px-8 print:hidden">
+            <span className="size-1.5 animate-pulse rounded-full bg-thread" />
+            <span className="truncate">Demo team · edit freely · resets every 6 h</span>
+            <Link href="/enter" className="ml-auto shrink-0 text-fg-2 transition-colors hover:text-thread">
+              Start your own →
             </Link>
           </div>
         )}

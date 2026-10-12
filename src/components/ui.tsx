@@ -58,10 +58,10 @@ export function PriorityChip({ priority }: { priority: "must" | "should" | "coul
 
 export function PageHeader({ title, children, sub }: { title: string; children?: ReactNode; sub?: ReactNode }) {
   return (
-    <header className="flex flex-wrap items-end justify-between gap-4 pb-7">
+    <header className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b border-line pb-6">
       <div className="min-w-0">
-        <h1 className="text-[24px] leading-tight font-semibold tracking-[-0.025em]">{title}</h1>
-        {sub && <div className="mt-1.5 max-w-[62ch] text-[14px] text-fg-2">{sub}</div>}
+        <h1 className="display text-[clamp(38px,4.4vw,56px)] text-balance">{title}</h1>
+        {sub && <div className="mt-3 max-w-[62ch] text-[14px] text-pretty text-fg-2">{sub}</div>}
       </div>
       {children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
     </header>
@@ -71,7 +71,7 @@ export function PageHeader({ title, children, sub }: { title: string; children?:
 export function Empty({ title, children }: { title: string; children?: ReactNode }) {
   return (
     <div className="rounded-xl border border-dashed border-line-2 px-6 py-10 text-center">
-      <p className="font-medium">{title}</p>
+      <p className="display text-[26px]">{title}</p>
       {children && <div className="mx-auto mt-1.5 max-w-md text-fg-2">{children}</div>}
     </div>
   );
@@ -80,7 +80,7 @@ export function Empty({ title, children }: { title: string; children?: ReactNode
 export function SectionTitle({ children, right }: { children: ReactNode; right?: ReactNode }) {
   return (
     <div className="mb-3 flex items-center justify-between gap-3">
-      <h2 className="text-[13px] font-semibold tracking-normal text-fg-2">{children}</h2>
+      <h2 className="eyebrow">{children}</h2>
       {right}
     </div>
   );
