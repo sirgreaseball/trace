@@ -2,26 +2,37 @@
 
 import Lenis from "lenis";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { Mark, Wordmark } from "@/components/brand";
+import { Icon } from "@/components/icons";
+import { isDark, subscribeTheme, ThemeToggle } from "@/components/shell";
 import { refs, suggest } from "@/lib/trace";
 import type { Story } from "@/lib/types";
-import { Mark } from "../brand";
-import { Icon } from "../icons";
-import { ThreadEngine, canRunGL, renderScale } from "./engine";
+import { canRunGL, RopeEngine, type Chapter } from "./rope";
 
-// Each chapter of the page maps to one thread formation, in order:
-// tangle, wild tangle, loom, ropes, helix, field of knots, line.
-const RAIL = ["Intro", "The problem", "Trace", "Receipts", "Viva", "Mentors", "Start"];
-const pad = (n: number) => String(n).padStart(2, "0");
+const v = (o: Record<string, string | number>) => o as CSSProperties;
+const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
+const round = (x: number) => Math.round(x * 1000) / 1000;
 
-// Everything below is the live demo data (scripts/seed-demo.ts prints it).
+// One rope formation per chapter, in page order. Places are [x, y, scale, rx, ry, rz] in view units.
+const CHAPTERS: Chapter[] = [
+  { form: "knot", desk: [0.36, 0.04, 1, 0.25, -0.35, 0], phone: [0, 0.45, 0.44, 0.25, -0.35, 0] },
+  { form: "tangle", desk: [0.5, 0, 0.78, 0, 0, 0], phone: [0, 0.55, 0.48, 0, 0, 0] },
+  { form: "lanes", desk: [0, 0, 1, 0, 0, 0], phone: [0, 0.56, 1, 0, 0, 0] },
+  { form: "weave", desk: [0.56, 0, 0.75, -0.9, 0, 0.35], phone: [0, 0.55, 0.55, -0.9, 0, 0.35] },
+  { form: "rings", desk: [0.33, 0, 0.82, 0.4, 0.3, 0], phone: [0, 0.55, 0.5, 0.4, 0.3, 0] },
+  { form: "bundle", desk: [0, -0.72, 1, 0, 0, 0], phone: [0, 0.55, 1, 0, 0, 0] },
+  { form: "knot", desk: [0, 0.47, 0.46, 0.2, 0.3, 0], phone: [0, 0.45, 0.44, 0.2, 0.3, 0] },
+];
+const TITLES = ["Trace", "The problem", "Link", "Receipts", "Viva", "Mentors", "Start"];
+
 const GRID = [
-  { id: "LF-1", title: "Sign in with college email", state: "Traced", tasks: "2/2", commits: 4 },
-  { id: "LF-4", title: "Report a lost item", state: "Traced", tasks: "3/3", commits: 4 },
-  { id: "LF-11", title: "Search and filter items", state: "Building", tasks: "1/2", commits: 5 },
-  { id: "LF-16", title: "Claim an item with a secret question", state: "Building", tasks: "1/2", commits: 2 },
-  { id: "LF-23", title: "Moderation queue for the security office", state: "Planned", tasks: "0/2", commits: 0 },
-  { id: "LF-26", title: "Map of drop-off points", state: "Untraced", tasks: "-", commits: 0 },
+  { id: "LF-1", title: "Sign in with college email", state: "Traced" },
+  { id: "LF-4", title: "Report a lost item", state: "Traced" },
+  { id: "LF-11", title: "Search and filter items", state: "Building" },
+  { id: "LF-16", title: "Claim an item with a secret question", state: "Building" },
+  { id: "LF-23", title: "Moderation queue for the security office", state: "Planned" },
+  { id: "LF-26", title: "Map of drop-off points", state: "Untraced" },
 ] as const;
 const STORIES = GRID.map((g) => ({ id: g.id, number: Number(g.id.slice(3)), title: g.title }) as Story);
 const TRY = ["LF-16: lock the claim after three wrong answers", "add category filter to the item search", "fix footer typo"];
@@ -42,769 +53,528 @@ const TEAMS = [
   { key: "CB", name: "Campus Carpool", traced: 83, balance: 75, flag: "6 commits not linked to any story" },
 ];
 
-const STATE_STYLE: Record<string, string> = {
-  Traced: "text-thread-ink",
-  Building: "text-fg",
-  Planned: "text-fg-2",
-  Untraced: "text-warn",
-};
-
-// The problem, read word by word as you scroll. Starred runs are set in italic red.
-const PROBLEM = "Four people, one repo, eight weeks. By the viva, nobody can say *who built what,* or *why it changed.*"
-  .split(" ")
-  .reduce<{ w: string; em: boolean }[]>((out, w) => {
-    const open = w.startsWith("*") || (out.at(-1)?.em && !out.at(-1)!.w.endsWith("*"));
-    out.push({ w, em: !!open });
+const PROBLEM = "Four people, one repo, eight weeks. By the viva, nobody can say *who built what,* or *why it changed.*";
+const WORDS = (() => {
+  let em = false;
+  return PROBLEM.split(" ").map((w) => {
+    if (w.startsWith("*")) em = true;
+    const out = { w: w.replace(/\*/g, ""), em };
+    if (w.endsWith("*")) em = false;
     return out;
-  }, [])
-  .map((x) => ({ w: x.w.replaceAll("*", ""), em: x.em }));
+  });
+})();
+
+type Note = { tone: "link" | "suggest" | "none"; text: string };
+
+// The same linker the app runs on real commits: named IDs link outright, anything else gets a suggestion.
+function link(msg: string): { hits: string[]; note: Note } {
+  const named = refs(msg, "LF").map((n) => `LF-${n}`);
+  if (named.length) {
+    const known = named.filter((id) => GRID.some((g) => g.id === id));
+    return { hits: known, note: { tone: "link", text: `Names ${named.join(", ")}. Linked and confirmed, no one has to check it.` } };
+  }
+  const s = suggest({ message: msg, files: [] }, STORIES, []);
+  if (s?.story_id) return { hits: [s.story_id], note: { tone: "suggest", text: `Suggests ${s.story_id}: shares “${s.shared.join("”, “")}”. A teammate confirms or rejects it.` } };
+  return { hits: [], note: { tone: "none", text: "No confident match. It waits in Commits until someone links it." } };
+}
+
+// Where each story's rope lane sits, as a percentage of the viewport height (see the lanes formation in rope.ts).
+const HH = 10 * Math.tan(Math.PI / 12);
+function laneTop(i: number, phone: boolean) {
+  const K = phone ? 10 : 14,
+    k = Math.round(1 + (i * (K - 3)) / 5),
+    gap = phone ? 0.2 : 0.24;
+  const y = ((K - 1) / 2 - k) * gap + CHAPTERS[2][phone ? "phone" : "desk"][1] * HH;
+  return round(50 - (y / (2 * HH)) * 100);
+}
+
+function DemoButton({ as, className, children }: { as: "student" | "mentor"; className: string; children: ReactNode }) {
+  return (
+    <form action="/auth/demo" method="post" className="contents">
+      <input type="hidden" name="as" value={as} />
+      <button className={className}>{children}</button>
+    </form>
+  );
+}
+
+function Ids({ text }: { text: string }) {
+  return <>{text.split(/(LF-\d+)/).map((p, i) => (i % 2 ? <b key={i}>{p}</b> : p))}</>;
+}
 
 export function Splash() {
-  const canvas = useRef<HTMLCanvasElement>(null);
   const root = useRef<HTMLDivElement>(null);
-  const [mode, setMode] = useState<"loading" | "gl" | "poster">("loading");
-  const [loaded, setLoaded] = useState(0);
-  const [ready, setReady] = useState(false);
+  const cv = useRef<HTMLCanvasElement>(null);
+  const ind = useRef<HTMLDivElement>(null);
+  const engine = useRef<RopeEngine | null>(null);
+  const lit = useRef<string[]>([]);
 
   useEffect(() => {
-    const el = root.current!;
-    const sections = [...el.querySelectorAll<HTMLElement>("[data-chapter]")];
-    const bar = el.querySelector<HTMLElement>("[data-progress]")!;
-    const foot = el.querySelector<HTMLElement>("[data-foot]");
-    const chNum = el.querySelector<HTMLElement>("[data-ch-num]");
-    const chName = el.querySelector<HTMLElement>("[data-ch-name]");
-    const railItems = [...el.querySelectorAll<HTMLElement>("[data-rail-item]")];
-    const dot = el.querySelector<HTMLElement>("[data-cursor-dot]");
-    const ring = el.querySelector<HTMLElement>("[data-cursor-ring]");
-    const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const fine = matchMedia("(pointer: fine)").matches;
-    const nogl = new URLSearchParams(location.search).has("nogl");
-    const mobile = innerWidth < 768;
-    const gl = !reduced && !nogl && canRunGL();
-
-    let engine: ThreadEngine | null = null;
-    if (gl && canvas.current) {
-      try {
-        engine = new ThreadEngine(canvas.current, {
-          threads: mobile ? 180 : 420,
-          samples: mobile ? 180 : 300,
-          dpr: renderScale(mobile),
-          mobile,
-          bloom: !mobile,
+    const el = root.current!,
+      canvas = cv.current!,
+      chip = ind.current!;
+    const [num, name] = chip.children as HTMLCollectionOf<HTMLElement>;
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let e: RopeEngine | null = null;
+    try {
+      if (canRunGL())
+        e = new RopeEngine(canvas, {
+          chapters: CHAPTERS,
+          mobile: innerWidth < 768,
+          intro: !reduce && scrollY < 50,
+          onReady: () => el.setAttribute("data-ready", ""),
         });
-      } catch {
-        engine = null;
-      }
+    } catch {
+      e = null;
     }
-    setMode(engine ? "gl" : "poster");
+    engine.current = e;
+    if (!e) {
+      el.dataset.gl = "off";
+      el.setAttribute("data-ready", "");
+    }
+    e?.setTheme(isDark());
+    const unTheme = subscribeTheme(() => e?.setTheme(isDark()));
+    const lenis = reduce ? null : new Lenis({ lerp: 0.085, wheelMultiplier: 0.9, anchors: true, autoRaf: false });
 
-    const lenis = reduced ? null : new Lenis({ lerp: 0.085, wheelMultiplier: 0.9 });
-    const go = (y: number, duration = 1.6) => (lenis ? lenis.scrollTo(y, { duration }) : scrollTo({ top: y }));
+    const sections = [...el.querySelectorAll<HTMLElement>("[data-chapter]")];
+    const scrubs = [...el.querySelectorAll<HTMLElement>("[data-scrub]")].map((n) => {
+      const [a = 1, b = 0.2] = (n.dataset.scrub ?? "").split(" ").filter(Boolean).map(Number);
+      return { n, a, b, top: 0, e: -1 };
+    });
+    let anchors: number[] = [],
+      vh = 1,
+      docH = 1,
+      last = -1,
+      shown = -1,
+      raf = 0,
+      alive = true;
+    const docTop = (n: HTMLElement) => n.getBoundingClientRect().top + scrollY;
 
-    // Anchors: the scroll position where each chapter sits centred on screen.
-    let anchors: number[] = [];
+    // Each chapter has a scroll anchor: the hero at the top, the others centred (phone: their top edge).
     const measure = () => {
-      anchors = sections.map((s) => s.offsetTop + s.offsetHeight / 2 - innerHeight / 2);
-      anchors[0] = 0;
-      engine?.resize(innerWidth, innerHeight);
+      if (!alive) return;
+      vh = innerHeight;
+      docH = document.documentElement.scrollHeight;
+      const max = docH - vh,
+        phone = innerWidth < 768;
+      anchors = sections.map((s, k) => (k === 0 ? 0 : Math.min(max, phone ? docTop(s) : docTop(s) + s.offsetHeight / 2 - vh / 2)));
+      for (const s of scrubs) s.top = docTop(s.n);
+      e?.resize(canvas.clientWidth, canvas.clientHeight);
+      last = -1;
     };
-    measure();
 
-    const chapterAt = (y: number) => {
-      for (let k = 0; k < anchors.length - 1; k++) {
-        if (y < anchors[k + 1]) {
-          const u = Math.max(0, (y - anchors[k]) / (anchors[k + 1] - anchors[k]));
-          // Hold each formation while its copy is on screen, morph in between.
-          const s = Math.min(1, Math.max(0, (u - 0.28) / 0.44));
-          return k + s * s * (3 - 2 * s);
+    const tick = (t: number) => {
+      raf = requestAnimationFrame(tick);
+      lenis?.raf(t);
+      const y = scrollY;
+      if (y === last) return;
+      last = y;
+
+      // The rope holds each formation near its anchor and morphs through the middle of the scroll between two.
+      let k = 0;
+      while (k < anchors.length - 2 && y >= anchors[k + 1]) k++;
+      const u = (y - anchors[k]) / (anchors[k + 1] - anchors[k] || 1);
+      const stage = Math.min(anchors.length - 1, k + clamp01((u - 0.28) / 0.44));
+      e?.setStage(stage);
+      // Past the last chapter the knot leaves with the page instead of hanging over the footer.
+      canvas.style.transform = `translate3d(0,${-Math.max(0, y - anchors[anchors.length - 1])}px,0)`;
+      el.style.setProperty("--lv", String(round(clamp01(1 - Math.abs(stage - 2) * 4))));
+
+      for (const s of scrubs) {
+        const x = round(clamp01((s.a * vh - (s.top - y)) / ((s.a - s.b) * vh)));
+        if (x !== s.e) {
+          s.e = x;
+          s.n.style.setProperty("--e", String(x));
         }
       }
-      return anchors.length - 1;
-    };
 
-    // Chapter ticks and in-page links.
-    const onRail = (e: Event) => go(Math.max(0, anchors[railItems.indexOf(e.currentTarget as HTMLElement)] ?? 0));
-    railItems.forEach((r) => r.addEventListener("click", onRail));
-    const onJump = (e: Event) => {
-      const t = (e.target as Element).closest<HTMLElement>("[data-jump]");
-      if (!t) return;
-      e.preventDefault();
-      const i = Number(t.dataset.jump);
-      go(i < 0 ? 0 : Math.max(0, anchors[i] ?? 0), i < 0 ? 2.2 : 1.6);
-    };
-    el.addEventListener("click", onJump);
-
-    // Magnetic buttons: lean a few pixels toward the pointer.
-    const magnets = reduced ? [] : [...el.querySelectorAll<HTMLElement>("[data-magnet]")];
-    const onMagnet = (e: PointerEvent) => {
-      const m = e.currentTarget as HTMLElement;
-      const r = m.getBoundingClientRect();
-      const dx = (e.clientX - (r.left + r.width / 2)) * 0.22;
-      const dy = (e.clientY - (r.top + r.height / 2)) * 0.32;
-      m.style.transform = `translate3d(${Math.max(-10, Math.min(10, dx))}px, ${Math.max(-8, Math.min(8, dy))}px, 0)`;
-    };
-    const offMagnet = (e: PointerEvent) => {
-      (e.currentTarget as HTMLElement).style.transform = "";
-    };
-    magnets.forEach((m) => {
-      m.addEventListener("pointermove", onMagnet);
-      m.addEventListener("pointerleave", offMagnet);
-    });
-
-    // Cursor: a dot that sticks to the pointer and a ring that trails it.
-    const useCursor = fine && !reduced && !!dot && !!ring;
-    if (useCursor) el.dataset.cursor = "";
-    const cur = { x: -100, y: -100, rx: -100, ry: -100 };
-    const cursorState = (t: EventTarget | null) => {
-      if (!(t instanceof Element)) return "drag";
-      if (t.closest("input, textarea")) return "text";
-      if (t.closest("a, button")) return "link";
-      if (t.closest("[data-no-drag], p, h1, h2, li")) return "plain";
-      return engine ? "drag" : "plain";
-    };
-
-    const onPointer = (e: PointerEvent) => {
-      engine?.setPointer(e.clientX, e.clientY);
-      cur.x = e.clientX;
-      cur.y = e.clientY;
-      if (useCursor) el.dataset.cursorState = cursorState(e.target);
-    };
-    const onLeave = () => {
-      engine?.clearPointer();
-      if (useCursor) el.dataset.cursorState = "out";
-    };
-    let down: { x: number; moved: boolean } | null = null;
-    const interactive = (t: EventTarget | null) => t instanceof Element && !!t.closest("a, button, input, [data-no-drag]");
-    const onDown = (e: PointerEvent) => {
-      if (interactive(e.target) || e.button !== 0) return;
-      down = { x: e.clientX, moved: false };
-    };
-    const onMove = (e: PointerEvent) => {
-      if (!down) return;
-      if (Math.abs(e.clientX - down.x) > 4) {
-        down.moved = true;
-        el.dataset.dragging = "";
+      const c = Math.round(stage);
+      chip.toggleAttribute("data-on", c > 0 && y < anchors[anchors.length - 1] + 0.3 * vh);
+      if (c !== shown) {
+        shown = c;
+        num.textContent = `0${c} / 06`;
+        name.textContent = TITLES[c];
       }
-      if (down.moved && e.pointerType === "mouse") {
-        engine?.drag(e.movementX);
-      }
+      chip.style.setProperty("--p", String(round(y / Math.max(1, docH - vh))));
+      el.toggleAttribute("data-scrolled", y > 40);
     };
-    const onUp = (e: PointerEvent) => {
-      if (down && !down.moved) {
-        engine?.pluck(e.clientX, e.clientY);
-      }
-      down = null;
-      delete el.dataset.dragging;
-    };
-    addEventListener("pointermove", onPointer, { passive: true });
-    addEventListener("pointermove", onMove, { passive: true });
-    addEventListener("pointerdown", onDown);
-    addEventListener("pointerup", onUp);
-    document.documentElement.addEventListener("pointerleave", onLeave);
+
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
     addEventListener("resize", measure);
-
-    let raf = 0;
-    let visible = true;
-    const onVis = () => {
-      visible = !document.hidden;
-      if (visible) raf = requestAnimationFrame(tick);
-    };
-    document.addEventListener("visibilitychange", onVis);
-
-    let shown = -1;
-    const tick = (t: number) => {
-      lenis?.raf(t);
-      const y = lenis ? lenis.scroll : scrollY;
-      const vh = innerHeight;
-      const max = Math.max(1, document.documentElement.scrollHeight - vh);
-      bar.style.transform = `scaleX(${Math.min(1, y / max)})`;
-      for (const s of sections) {
-        const d = (s.offsetTop + s.offsetHeight / 2 - y - vh / 2) / vh;
-        s.style.setProperty("--v", String(Math.max(0, Math.min(1, 1.35 - Math.abs(d) * 1.7))));
-        s.style.setProperty("--k", String(Math.max(0, Math.min(1, 1 - d * 1.4))));
-      }
-      if (foot) foot.style.setProperty("--f", String(Math.max(0, Math.min(1, (y + vh - foot.offsetTop) / foot.offsetHeight))));
-      const c = chapterAt(y);
-      const active = Math.round(c);
-      if (active !== shown) {
-        shown = active;
-        railItems.forEach((r, i) => r.toggleAttribute("data-active", i === active));
-        if (chNum) chNum.textContent = pad(active + 1);
-        if (chName) chName.textContent = RAIL[active];
-      }
-      if (useCursor) {
-        cur.rx += (cur.x - cur.rx) * 0.2;
-        cur.ry += (cur.y - cur.ry) * 0.2;
-        dot!.style.transform = `translate3d(${cur.x}px, ${cur.y}px, 0)`;
-        ring!.style.transform = `translate3d(${cur.rx}px, ${cur.ry}px, 0)`;
-      }
-      if (engine) {
-        engine.setChapter(c);
-        engine.render((y / vh) * 0.35, false);
-      }
-      if (visible) raf = requestAnimationFrame(tick);
-    };
-
-    let cancelled = false;
-    (async () => {
-      setLoaded(0.3);
-      await document.fonts?.ready;
-      if (cancelled) return;
-      setLoaded(0.6);
-      engine?.warm();
-      if (cancelled) return;
-      setLoaded(0.85);
-      raf = requestAnimationFrame((t) => {
-        tick(t);
-        setLoaded(1);
-      });
-    })();
+    document.fonts?.ready.then(measure);
+    measure();
+    raf = requestAnimationFrame(tick);
 
     return () => {
-      cancelled = true;
+      alive = false;
       cancelAnimationFrame(raf);
-      railItems.forEach((r) => r.removeEventListener("click", onRail));
-      el.removeEventListener("click", onJump);
-      magnets.forEach((m) => {
-        m.removeEventListener("pointermove", onMagnet);
-        m.removeEventListener("pointerleave", offMagnet);
-      });
-      removeEventListener("pointermove", onPointer);
-      removeEventListener("pointermove", onMove);
-      removeEventListener("pointerdown", onDown);
-      removeEventListener("pointerup", onUp);
-      document.documentElement.removeEventListener("pointerleave", onLeave);
-      removeEventListener("resize", measure);
-      document.removeEventListener("visibilitychange", onVis);
       lenis?.destroy();
-      engine?.dispose();
+      ro.disconnect();
+      removeEventListener("resize", measure);
+      unTheme();
+      e?.dispose();
+      engine.current = null;
     };
   }, []);
 
-  const start = "/enter";
+  // Light the lanes of the stories a commit message links to, and send a pulse down each new one.
+  const onHits = useCallback((ids: string[]) => {
+    const e = engine.current;
+    if (!e) return;
+    const idx = ids.map((id) => GRID.findIndex((g) => g.id === id)).filter((i) => i >= 0);
+    e.highlight(idx.map((i) => e.lane(i)));
+    for (const i of idx) if (!lit.current.includes(GRID[i].id)) e.pulse(e.lane(i), 0.45);
+    lit.current = idx.map((i) => GRID[i].id);
+  }, []);
 
   return (
-    <div ref={root} data-ready={ready ? "" : undefined} className="splash grain relative overflow-x-clip bg-bg text-fg">
-      <canvas ref={canvas} aria-hidden className={`fixed inset-0 h-dvh w-full transition-opacity duration-[1800ms] ${mode === "gl" && ready ? "opacity-100" : "opacity-0"}`} />
-      {mode === "poster" && <Poster />}
-      <div aria-hidden className="pointer-events-none fixed inset-0 bg-[radial-gradient(110%_75%_at_12%_85%,rgb(12_12_10/0.86),transparent_58%)] max-md:bg-[linear-gradient(to_bottom,rgb(12_12_10/0.1),rgb(12_12_10/0.72))]" />
+    <div ref={root} className="splash">
+      <canvas ref={cv} className="splash-canvas" aria-hidden />
+      <Mark className="splash-poster" />
 
-      <Loader progress={loaded} onDone={() => setReady(true)} />
-
-      <div aria-hidden className="cursor-dot" data-cursor-dot />
-      <div aria-hidden className="cursor-ring" data-cursor-ring>
-        <span>Drag</span>
-      </div>
-
-      <header className="fixed inset-x-0 top-0 z-30">
-        <div className="h-px w-full origin-left bg-thread" data-progress style={{ transform: "scaleX(0)" }} />
-        <nav className="mx-auto grid h-16 max-w-[1400px] grid-cols-[1fr_auto] items-center bg-gradient-to-b from-bg via-bg/70 to-transparent px-5 sm:h-[76px] sm:px-10 md:grid-cols-[1fr_auto_1fr]">
-          <Link href="/" className="flex items-center gap-2 text-[17px] font-medium tracking-[-0.03em]" aria-label="Trace home">
-            <Mark className="text-thread" /> trace
-          </Link>
-          <p className="mono hidden items-center gap-3 text-[11px] tracking-[0.08em] text-fg-3 uppercase md:flex" aria-live="polite">
-            <span>
-              <span data-ch-num className="text-fg">
-                01
-              </span>{" "}
-              / {pad(RAIL.length)}
-            </span>
-            <span className="h-px w-8 bg-line-2" />
-            <span data-ch-name className="w-24">
-              Intro
-            </span>
-          </p>
-          <div className="flex items-center justify-end gap-1 sm:gap-2">
-            <a href="https://github.com/sirgreaseball/trace" target="_blank" rel="noreferrer" className="hidden px-3 py-2 text-[13px] text-fg-2 transition-colors duration-300 hover:text-fg sm:block">
-              Source
-            </a>
-            <Link href={start} className="px-3 py-2 text-[13px] text-fg-2 transition-colors duration-300 hover:text-fg">
-              Sign in
-            </Link>
-            <DemoButton as="student" variant="pill">
-              Live demo
-            </DemoButton>
-          </div>
+      <header className="s-head">
+        <Wordmark />
+        <nav className="hidden items-center gap-1 md:flex">
+          <a href="#trace" className="s-link">
+            How it works
+          </a>
+          <a href="https://github.com/sirgreaseball/trace" target="_blank" rel="noreferrer" className="s-link inline-flex items-center gap-1.5">
+            Source
+            <Icon name="external" size={12} />
+          </a>
         </nav>
+        <div className="flex items-center gap-1.5 justify-self-end">
+          <Link href="/enter" className="s-link hidden md:inline-flex">
+            Sign in
+          </Link>
+          <ThemeToggle />
+          <DemoButton as="student" className="btn btn-primary">
+            Try the demo
+          </DemoButton>
+        </div>
       </header>
 
-      <nav aria-label="Chapters" className="fixed top-1/2 right-6 z-30 hidden -translate-y-1/2 flex-col items-end lg:flex">
-        {RAIL.map((r, i) => (
-          <button key={r} data-rail-item aria-label={`${pad(i + 1)} ${r}`} className="group flex items-center gap-3 py-[7px]">
-            <span className="mono text-[10px] text-fg-3 uppercase opacity-0 transition-opacity duration-300 group-hover:opacity-100">{r}</span>
-            <span className="h-px w-3 bg-fg-3 transition-all duration-500 ease-[var(--ease)] group-hover:bg-fg group-data-[active]:w-8 group-data-[active]:bg-thread" />
-          </button>
-        ))}
-      </nav>
+      <div ref={ind} className="ch-ind" aria-hidden>
+        <span />
+        <span className="text-fg" />
+        <span className="ch-bar">
+          <i />
+        </span>
+      </div>
 
-      <main className="relative z-10">
-        {/* Intro: the tangle */}
-        <section data-chapter className="chapter min-h-dvh">
-          <div className="mx-auto flex min-h-dvh max-w-[1400px] flex-col justify-between px-5 pt-24 pb-8 sm:px-10 sm:pt-28 sm:pb-10">
-            <div className="hero-in mono grid grid-cols-2 gap-4 text-[11px] tracking-[0.08em] text-fg-3 uppercase md:grid-cols-3" style={{ animationDelay: "0.5s" }}>
-              <span>(Trace) <span className="max-sm:hidden">Traceability workspace</span></span>
-              <span className="hidden md:block">For student software teams and their mentors</span>
-              <span className="text-right">Edition 02 / 2026</span>
+      <main>
+        <section data-chapter className="hero">
+          <p className="eyebrow hero-in">Trace / for student software teams</p>
+          <h1 className="display hero-title">
+            {["Untangle", "the group", "project."].map((t, i) => (
+              <span key={t} className="ln">
+                <span style={v({ "--i": i })}>{t}</span>
+              </span>
+            ))}
+          </h1>
+          <div className="hero-in mt-9 grid items-end gap-6 md:grid-cols-[minmax(0,34ch)_1fr_auto] md:gap-10">
+            <p className="text-[15px] leading-relaxed text-pretty text-fg-2 md:text-[16px]">
+              Trace ties your team’s stories, commits and decisions to the people behind them, so the viva never starts with “who built this?”
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <DemoButton as="student" className="btn btn-thread btn-lg">
+                Demo as a student
+              </DemoButton>
+              <DemoButton as="mentor" className="btn btn-lg">
+                Demo as a mentor
+              </DemoButton>
             </div>
-
-            <div>
-              <h1 className="hero-title display text-[clamp(56px,10.6vw,190px)] leading-[0.86]">
-                <span className="line">
-                  <span style={{ animationDelay: "0.05s" }}>Every requirement,</span>
-                </span>
-                <span className="line">
-                  <span style={{ animationDelay: "0.17s" }}>
-                    <em className="pr-[0.06em] text-thread">traced.</em>
-                  </span>
-                </span>
-              </h1>
-
-              <div className="mt-10 grid items-end gap-8 border-t border-line pt-6 md:grid-cols-[1fr_minmax(0,420px)_auto] md:gap-10">
-                <button data-jump="1" className="hero-in mono hidden items-center gap-3 self-center text-[11px] tracking-[0.08em] text-fg-3 uppercase transition-colors hover:text-fg md:flex" style={{ animationDelay: "0.8s" }}>
-                  <span className="scroll-cue" /> Scroll to untangle
-                </button>
-                <p className="hero-in copy text-[17px] leading-relaxed text-fg-2" style={{ animationDelay: "0.55s" }}>
-                  Trace ties your team&apos;s stories, commits and decisions to the people behind them, so the viva never starts with &ldquo;who built this?&rdquo;
-                </p>
-                <div className="hero-in flex flex-wrap items-center gap-3" style={{ animationDelay: "0.65s" }}>
-                  <DemoButton as="student" variant="primary">
-                    Try the demo
-                  </DemoButton>
-                  <Link href={start} data-magnet className="magnet rounded-full border border-line-2 px-6 py-3 text-[15px] font-medium hover:border-fg-3">
-                    Create a workspace
-                  </Link>
-                </div>
-              </div>
+            <div className="hidden text-right md:block">
+              <p className="eyebrow">Drag the knot · click a strand</p>
+              <a href="#trace" className="link mt-2 inline-flex items-center gap-1.5 text-[13px]">
+                See how it links
+                <Icon name="arrow" size={13} />
+              </a>
             </div>
           </div>
         </section>
 
-        {/* The problem: a wilder tangle. Pinned while the sentence reads itself in. */}
-        <section data-chapter className="chapter min-h-[190dvh]">
-          <div className="sticky top-0 flex min-h-dvh items-center">
-            <div className="mx-auto w-full max-w-[1400px] px-5 sm:px-10">
-              <Eyebrow n={2}>The problem</Eyebrow>
-              <p className="copy display mt-8 max-w-[17ch] text-[clamp(40px,5.8vw,96px)] leading-[0.98]">
-                {PROBLEM.map((x, i) => (
-                  <span key={i} className={x.em ? "text-thread italic" : undefined} style={{ opacity: `clamp(0.1, calc(var(--k) * ${PROBLEM.length * 1.2} - ${i}), 1)` }}>
-                    {x.w}{" "}
+        <section data-chapter className="ch">
+          <div className="chapter-gap" />
+          <div className="sheet">
+            <div data-scrub="0.95 0.35">
+              <p className="eyebrow">01 · The problem</p>
+              <h2 className="words mt-6 max-w-[13em] text-balance" style={v({ "--n": WORDS.length })}>
+                {WORDS.map((w, i) => (
+                  <span key={i} style={v({ "--i": i })} data-em={w.em || undefined}>
+                    {w.w}{" "}
                   </span>
                 ))}
+              </h2>
+              <p className="ch-lede rv" style={v({ "--from": 0.7 })}>
+                Trace keeps the thread while you build, so the answer is already written down.
               </p>
-              <ol className="mt-12 grid max-w-[1100px] border-t border-line md:grid-cols-3">
-                {["Who actually built the claim flow?", "Why did we switch to email alerts?", "Is “report a lost item” really done?"].map((q, i) => (
-                  <li
-                    key={q}
-                    className="flex gap-4 border-b border-line py-4 text-[15px] text-fg-2 md:border-r md:border-b-0 md:px-5 md:first:pl-0 md:last:border-r-0"
-                    style={{ opacity: `clamp(0, calc((var(--k) - 0.72) * 14 - ${i}), 1)` }}
-                  >
-                    <span className="mono pt-[3px] text-[11px] text-thread">{pad(i + 1)}</span> {q}
-                  </li>
-                ))}
-              </ol>
             </div>
           </div>
         </section>
 
-        {/* Trace: the loom */}
-        <section data-chapter className="chapter flex min-h-[140dvh] items-center">
-          <div className="mx-auto grid w-full max-w-[1400px] gap-12 px-5 sm:px-10 xl:grid-cols-[minmax(0,1fr)_minmax(0,640px)] xl:items-center xl:gap-16">
-            <div className="copy">
-              <Eyebrow n={3}>Trace</Eyebrow>
-              <Heading lines={["Commits find", <em key="e">their requirement.</em>]} />
-              <p className="reveal mt-7 max-w-[46ch] text-[17px] leading-relaxed text-fg-2">
-                Write <span className="mono text-[14px] text-fg">LF-12</span> in a commit message and it links itself. Anything else gets a suggested match, and a teammate confirms it. Try it.
-              </p>
-            </div>
-            <TraceDemo />
-          </div>
-        </section>
+        <TraceChapter onHits={onHits} />
 
-        {/* Receipts: the ropes */}
-        <section data-chapter className="chapter flex min-h-[140dvh] items-center">
-          <div className="mx-auto grid w-full max-w-[1400px] items-center gap-14 px-5 sm:px-10 lg:grid-cols-[minmax(0,1fr)_420px]">
-            <div className="copy">
-              <Eyebrow n={4}>Receipts</Eyebrow>
-              <Heading lines={["A receipt for", <em key="e">every person.</em>]} />
-              <p className="reveal mt-7 max-w-[44ch] text-[17px] leading-relaxed text-fg-2">
+        <section data-chapter className="ch">
+          <div className="chapter-gap" />
+          <div className="sheet grid items-center gap-12 md:grid-cols-[minmax(0,1fr)_22rem_minmax(0,1.1fr)]">
+            <div data-scrub="0.9 0.4">
+              <p className="eyebrow">03 · Receipts</p>
+              <h2 className="display ch-title mt-5 text-balance">
+                A receipt for <em>every person.</em>
+              </h2>
+              <p className="ch-lede rv" style={v({ "--from": 0.3 })}>
                 Each line is a commit, task or decision you can open. A teammate can dispute any line, and the receipt keeps both sides.
               </p>
-              <dl className="reveal mono mt-10 grid max-w-[460px] grid-cols-3 border-t border-line pt-5 text-[11px] tracking-[0.06em] text-fg-3 uppercase">
-                {[
-                  ["Lines", "14"],
-                  ["Disputed", "1"],
-                  ["Share", "28%"],
-                ].map(([k, v]) => (
-                  <div key={k}>
-                    <dt>{k}</dt>
-                    <dd className="figure mt-2 text-[40px] tracking-normal text-fg normal-case">{v}</dd>
-                  </div>
-                ))}
-              </dl>
             </div>
-            <div className="receipt-print" data-no-drag>
-              <div className="receipt-paper px-6 pt-8 pb-10 font-mono text-[#1c1a15]">
-                <p className="text-center text-[10.5px] tracking-[0.3em]">TRACE CONTRIBUTION RECEIPT</p>
-                <p className="mt-3 text-center font-serif text-[30px] leading-none">Meera Iyer</p>
-                <p className="mt-1 text-center text-[10.5px] opacity-60">Campus Lost &amp; Found</p>
-                <div className="receipt-rule" />
-                {RECEIPT.map((l, i) => (
-                  <div key={l.kind} className="mb-3 text-[11.5px]" style={{ opacity: `calc(var(--k) * 6 - ${i + 0.5})` }}>
-                    <div className="flex items-start gap-2">
-                      <span className="flex-1 leading-snug">
-                        <span className="block text-[9.5px] opacity-55">{l.kind}</span>
-                        {l.title}
-                      </span>
-                      <span className="text-[10.5px]">{l.detail}</span>
+            <div data-scrub="0.95 0.3" data-solid>
+              <div className="slot-mouth" />
+              <div className="slot-clip">
+                <div className="slot-paper">
+                  <div className="receipt">
+                    <div className="receipt-paper mono px-5 pt-7 pb-8 text-[11.5px] leading-snug">
+                      <p className="text-center font-medium tracking-[0.12em]">TRACE CONTRIBUTION RECEIPT</p>
+                      <p className="mt-1 text-center opacity-70">Meera Iyer · Campus Lost &amp; Found</p>
+                      <div className="receipt-rule" />
+                      <ul className="space-y-3">
+                        {RECEIPT.map((l) => (
+                          <li key={l.kind}>
+                            <p className="opacity-60">{l.kind}</p>
+                            <p className="flex gap-3">
+                              <span className="min-w-0 flex-1">{l.title}</span>
+                              <span>{l.detail}</span>
+                            </p>
+                            {l.disputed && <p className="mt-1.5 border-l-2 border-warn pl-2 text-warn">DISPUTED · {l.disputed}</p>}
+                          </li>
+                        ))}
+                      </ul>
+                      <div className="receipt-rule" />
+                      <dl className="grid grid-cols-[1fr_auto] gap-y-1">
+                        <dt>COMMITS</dt>
+                        <dd>4</dd>
+                        <dt>TASKS</dt>
+                        <dd>1</dd>
+                        <dt>LINES</dt>
+                        <dd>+298 −14</dd>
+                        <dt>DISPUTED</dt>
+                        <dd>1 line</dd>
+                      </dl>
                     </div>
-                    {l.disputed && <p className="mt-1.5 border-l-2 border-[#c22a17] pl-2 text-[10.5px] leading-snug">DISPUTED. {l.disputed}</p>}
                   </div>
-                ))}
-                <div className="receipt-rule" />
-                <div className="flex items-baseline justify-between text-[12px] font-semibold" style={{ opacity: "calc(var(--k) * 6 - 5)" }}>
-                  <span>SHARE OF TEAM WORK</span>
-                  <span className="font-serif text-[30px] font-normal">28%</span>
+                </div>
+              </div>
+            </div>
+            <div aria-hidden className="hidden md:block" />
+          </div>
+        </section>
+
+        <section data-chapter className="ch">
+          <div className="chapter-gap" />
+          <div className="sheet">
+            <div className="max-w-[30rem]">
+              <div data-scrub="0.9 0.4">
+                <p className="eyebrow">04 · Viva</p>
+                <h2 className="display ch-title mt-5 text-balance">
+                  Practise the parts you <em>didn’t build.</em>
+                </h2>
+                <p className="ch-lede rv" style={v({ "--from": 0.3 })}>
+                  Questions come from your teammates’ code, the team’s decisions and the requirements you never touched. Answers come from your own record.
+                </p>
+              </div>
+              <div className="flip mt-10" data-scrub="0.3 0" data-solid>
+                <div className="flip-inner">
+                  <div className="flip-face">
+                    <p className="eyebrow">Question 3 of 8 · from a decision</p>
+                    <p className="mt-auto pt-10 text-[21px] leading-snug font-medium text-balance">
+                      The team chose email only for match alerts. Why, and what did you give up?
+                    </p>
+                    <p className="mono mt-6 text-[11px] text-fg-3">Keep scrolling for the answer</p>
+                  </div>
+                  <div className="flip-face flip-back">
+                    <p className="eyebrow !text-current opacity-60">Answer · from decision D-4</p>
+                    <p className="mt-auto pt-10 text-[16px] leading-relaxed text-pretty">
+                      Push notifications need a service worker and Firebase Cloud Messaging setup we don’t have time for before the demo. Email alerts for matches are enough for v1.
+                    </p>
+                    <p className="mono mt-6 text-[11px] opacity-60">Considered instead: push notifications (Kabir’s plan)</p>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Viva: the helix */}
-        <section data-chapter className="chapter flex min-h-[130dvh] items-center">
-          <div className="mx-auto w-full max-w-[1400px] px-5 text-center sm:px-10">
-            <div className="copy mx-auto max-w-[960px]">
-              <Eyebrow n={5} center>
-                Viva
-              </Eyebrow>
-              <Heading lines={["Practise the parts", <em key="e">you didn&apos;t build.</em>]} />
-              <p className="reveal mx-auto mt-7 max-w-[52ch] text-[17px] leading-relaxed text-fg-2">
-                Questions come from your teammates&apos; code, the team&apos;s decisions and the requirements you never touched. Answers come from your own record.
-              </p>
-            </div>
-            <div className="viva-card reveal mx-auto mt-14 max-w-[540px] text-left" data-no-drag>
-              <div className="viva-inner relative h-[290px]">
-                <div className="viva-face absolute inset-0 flex flex-col justify-between rounded-[18px] border border-line bg-bg-2 p-7">
-                  <p className="mono flex justify-between text-[11px] tracking-[0.06em] text-fg-3 uppercase">
-                    <span>Decision D-7</span>
-                    <span>Made by Aarav</span>
-                  </p>
-                  <p className="display text-[clamp(26px,3vw,34px)] leading-[1.08]">The team chose email only for match alerts. Why, and what did you give up?</p>
-                  <p className="mono text-[11px] tracking-[0.06em] text-fg-3 uppercase">Say it out loud, then scroll to flip</p>
-                </div>
-                <div className="viva-face viva-back absolute inset-0 flex flex-col justify-between rounded-[18px] bg-[#ece8de] p-7 text-[#171612]">
-                  <p className="mono text-[11px] tracking-[0.06em] text-[#8f8a7d] uppercase">From the record</p>
-                  <p className="text-[15.5px] leading-relaxed">
-                    Push notifications need a service worker and Firebase Cloud Messaging setup we don&apos;t have time for before the demo. Email alerts for matches are enough for v1.
-                  </p>
-                  <p className="text-[12.5px] text-[#5e5a50]">Considered instead: push notifications (Kabir&apos;s plan)</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Mentors: the field of knots */}
-        <section data-chapter className="chapter flex min-h-[130dvh] items-center">
-          <div className="mx-auto w-full max-w-[1400px] px-5 sm:px-10">
-            <div className="copy max-w-[820px]">
-              <Eyebrow n={6}>Mentors</Eyebrow>
-              <Heading lines={["Every team", <em key="e">on one page.</em>]} />
-              <p className="reveal mt-7 max-w-[50ch] text-[17px] leading-relaxed text-fg-2">
+        <section data-chapter className="ch">
+          <div className="chapter-gap" />
+          <div className="sheet">
+            <div className="max-w-[34rem]" data-scrub="0.9 0.4">
+              <p className="eyebrow">05 · Mentors</p>
+              <h2 className="display ch-title mt-5 text-balance">
+                Every team on <em>one page.</em>
+              </h2>
+              <p className="ch-lede rv" style={v({ "--from": 0.3 })}>
                 Mentors see how much each team has traced, who is carrying the work, who went quiet and which decisions contradict each other.
               </p>
             </div>
-            <div className="reveal copy mt-14 border-t border-line" data-no-drag>
-              <div className="mono hidden grid-cols-[minmax(0,1.3fr)_220px_110px_minmax(0,1.3fr)] gap-6 py-3 text-[10.5px] tracking-[0.08em] text-fg-3 uppercase md:grid">
+            <div className="panel mt-10 max-w-[60rem] overflow-hidden" data-scrub="0.9 0.45" data-solid>
+              <div className="label-sm hidden grid-cols-[minmax(0,1.3fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,1.5fr)] gap-6 border-b border-line px-5 py-3 md:grid">
                 <span>Team</span>
                 <span>Traced</span>
                 <span>Balance</span>
-                <span>Needs attention</span>
+                <span>Needs a look</span>
               </div>
-              {TEAMS.map((t, i) => (
+              {TEAMS.map((t) => (
                 <div
                   key={t.key}
-                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-6 gap-y-1 border-t border-line py-4 md:grid-cols-[minmax(0,1.3fr)_220px_110px_minmax(0,1.3fr)]"
-                  style={{ opacity: `calc(var(--k) * 6 - ${i})` }}
+                  className="grid grid-cols-2 items-center gap-x-6 gap-y-3 border-b border-line px-5 py-4 last:border-0 md:grid-cols-[minmax(0,1.3fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,1.5fr)]"
                 >
-                  <span className="flex items-center gap-3 text-[15px]">
-                    <span className="mono w-7 text-[10.5px] text-fg-3">{t.key}</span>
-                    {t.name}
-                  </span>
-                  <span className="flex items-center gap-4">
-                    <span className="figure w-14 text-[30px]">{t.traced}%</span>
-                    <span className="hidden h-px w-28 bg-line-2 md:block">
-                      <span className="block h-px bg-thread" style={{ width: `calc(${t.traced}% * min(1, var(--k) * 1.4))` }} />
-                    </span>
-                  </span>
-                  <span className="mono hidden text-[13px] text-fg-2 md:block">{t.balance}%</span>
-                  <span className={`col-span-2 pl-10 text-[13.5px] md:col-span-1 md:pl-0 ${t.flag.includes("not linked") ? "text-fg-2" : "text-warn"}`}>{t.flag}</span>
+                  <p className="col-span-2 flex min-w-0 items-center gap-3 md:col-span-1">
+                    <span className="chip mono">{t.key}</span>
+                    <span className="truncate text-[14px] font-medium">{t.name}</span>
+                  </p>
+                  <Meter label="Traced" value={t.traced} />
+                  <Meter label="Balance" value={t.balance} low={t.balance < 40} />
+                  <p className="col-span-2 flex items-center gap-2 text-[13px] text-fg-2 md:col-span-1">
+                    <Icon name="warn" size={14} className="shrink-0 text-warn" />
+                    {t.flag}
+                  </p>
                 </div>
               ))}
             </div>
           </div>
         </section>
 
-        {/* Start: one line */}
-        <section data-chapter className="chapter flex min-h-dvh flex-col items-center justify-center text-center">
-          <div className="copy px-5">
-            <Eyebrow n={7} center>
-              Start
-            </Eyebrow>
-            <h2 className="reveal-lines display mt-6 text-[clamp(52px,8.6vw,150px)] leading-[0.9]">
-              <span className="line" style={{ ["--i" as string]: 0 }}>
-                <span>Set up your team</span>
-              </span>
-              <span className="line" style={{ ["--i" as string]: 1 }}>
-                <span>
-                  <em className="pr-[0.05em] text-thread">in two minutes.</em>
-                </span>
-              </span>
-            </h2>
-            <p className="reveal mx-auto mt-8 max-w-[44ch] text-[17px] leading-relaxed text-fg-2">Create a workspace, connect a public GitHub repo, then invite your team and your mentor. Free for student teams.</p>
-            <div className="reveal mt-10 flex flex-wrap justify-center gap-3">
-              <Link href={start} data-magnet className="magnet group flex items-center gap-2 rounded-full bg-thread px-7 py-3.5 text-[15px] font-medium text-white">
-                Create a workspace
-                <Icon name="arrow" size={16} className="transition-transform duration-300 group-hover:translate-x-0.5" />
-              </Link>
-              <DemoButton as="mentor">See the mentor demo</DemoButton>
+        <section data-chapter className="ch">
+          <div className="chapter-gap" />
+          <div className="sheet text-center">
+            <div className="md:mt-[34vh]" data-scrub="0.9 0.4">
+              <h2 className="display text-[clamp(44px,7vw,112px)] text-balance">
+                Every requirement, <em>traced.</em>
+              </h2>
+              <p className="ch-lede rv mx-auto" style={v({ "--from": 0.3 })}>
+                Create a workspace, connect a public GitHub repo, then invite your team and your mentor. Free for student teams.
+              </p>
+              <div className="rv mt-9 flex flex-wrap justify-center gap-2" style={v({ "--from": 0.45 })}>
+                <Link href="/enter" className="btn btn-primary btn-lg">
+                  Set up your team
+                </Link>
+                <DemoButton as="mentor" className="btn btn-lg">
+                  See the mentor demo
+                </DemoButton>
+              </div>
             </div>
           </div>
         </section>
       </main>
 
-      <footer data-foot className="relative z-10 overflow-hidden border-t border-line bg-bg px-5 pt-14 pb-6 sm:px-10">
-        <div className="mx-auto max-w-[1400px]">
-          <div className="grid gap-10 md:grid-cols-[minmax(0,1fr)_auto]">
-            <p className="max-w-[34ch] text-[15px] leading-relaxed text-fg-2">
-              Trace is a traceability workspace for student software teams and their mentors. Stories, commits, decisions and people, on one thread.
-            </p>
-            <ul className="mono grid grid-cols-2 gap-x-12 gap-y-2 text-[12px] tracking-[0.04em] text-fg-2 uppercase">
-              <li>
-                <DemoButton as="student" variant="text">
-                  Student demo
-                </DemoButton>
-              </li>
-              <li>
-                <a className="transition-colors hover:text-fg" href="https://github.com/sirgreaseball/trace" target="_blank" rel="noreferrer">
-                  Source
-                </a>
-              </li>
-              <li>
-                <DemoButton as="mentor" variant="text">
-                  Mentor demo
-                </DemoButton>
-              </li>
-              <li>
-                <Link className="transition-colors hover:text-fg" href={start}>
-                  Sign in
-                </Link>
-              </li>
-              <li>
-                <button data-jump="-1" className="uppercase transition-colors hover:text-fg">
-                  Back to top ↑
-                </button>
-              </li>
-            </ul>
-          </div>
-          <div aria-hidden className="relative mt-12 select-none">
-            <p className="display text-[clamp(120px,33vw,540px)] leading-[0.74] text-transparent [-webkit-text-stroke:1px_rgb(236_232_222/0.2)]">trace.</p>
-            <p className="display absolute inset-0 text-[clamp(120px,33vw,540px)] leading-[0.74] [clip-path:inset(calc((1-var(--f,0))*100%)_0_0_0)]">
-              trace<span className="text-thread">.</span>
-            </p>
-          </div>
-          <div className="mono mt-8 flex flex-wrap justify-between gap-3 border-t border-line pt-5 text-[11px] tracking-[0.06em] text-fg-3 uppercase">
-            <span>&copy; 2026 Trace</span>
-            <span>Designed and built by Dhruv Sonar</span>
-            <span>NMIMS Hyderabad</span>
-          </div>
+      <footer className="s-foot" data-scrub="1 0.4">
+        <div className="grid gap-8 px-(--gutter) pt-14 md:grid-cols-[minmax(0,1fr)_auto]">
+          <p className="max-w-[44ch] text-[14px] leading-relaxed text-fg-2">
+            Trace is a traceability workspace for student software teams and their mentors. Stories, commits, decisions and people, on one thread.
+          </p>
+          <nav className="-mx-3 flex flex-wrap content-start gap-1 md:justify-end">
+            <DemoButton as="student" className="s-link">
+              Student demo
+            </DemoButton>
+            <DemoButton as="mentor" className="s-link">
+              Mentor demo
+            </DemoButton>
+            <a href="https://github.com/sirgreaseball/trace" target="_blank" rel="noreferrer" className="s-link">
+              Source
+            </a>
+            <Link href="/enter" className="s-link">
+              Sign in
+            </Link>
+          </nav>
         </div>
+        <div className="mt-12 flex flex-wrap justify-between gap-2 px-(--gutter) text-[12px] text-fg-3">
+          <span>© 2026 Trace</span>
+          <span>Designed and built by Dhruv Sonar</span>
+        </div>
+        <p className="foot-word mt-6 px-(--gutter) text-fg" aria-hidden>
+          trace
+        </p>
       </footer>
     </div>
   );
 }
 
-function Eyebrow({ n, center = false, children }: { n: number; center?: boolean; children: ReactNode }) {
-  return (
-    <p className={`reveal eyebrow flex items-center gap-3 ${center ? "justify-center" : ""}`}>
-      <span className="text-thread">({pad(n)})</span>
-      <span className="h-px w-10 bg-line-2" />
-      <span>{children}</span>
-    </p>
-  );
-}
-
-function Heading({ lines }: { lines: ReactNode[] }) {
-  return (
-    <h2 className="reveal-lines display mt-6 text-[clamp(46px,6.6vw,112px)] leading-[0.92] [&_em]:pr-[0.05em]">
-      {lines.map((l, i) => (
-        <span key={i} className="line" style={{ ["--i" as string]: i }}>
-          <span>{l}</span>
-        </span>
-      ))}
-    </h2>
-  );
-}
-
-/** The real linker running on the demo grid: type a commit message and watch it find its story. */
-function TraceDemo() {
-  const [msg, setMsg] = useState(TRY[0]);
-  const { hits, note } = useMemo(() => {
-    if (!msg.trim()) return { hits: [] as string[], note: { tone: "idle", text: "Type a commit message, or pick one below." } };
-    const named = refs(msg, "LF").map((n) => `LF-${n}`);
-    if (named.length) {
-      const known = named.filter((id) => GRID.some((g) => g.id === id));
-      return {
-        hits: known,
-        note: { tone: "link", text: `Names ${named.join(", ")}. Linked and confirmed, no one has to check it.` },
-      };
-    }
-    const s = suggest({ message: msg, files: [] }, STORIES, []);
-    if (s?.story_id) {
-      return {
-        hits: [s.story_id],
-        note: { tone: "suggest", text: `Suggests ${s.story_id}: shares “${s.shared.join("”, “")}”. A teammate confirms or rejects it.` },
-      };
-    }
-    return { hits: [], note: { tone: "none", text: "No confident match. It waits in Commits until someone links it." } };
-  }, [msg]);
+function TraceChapter({ onHits }: { onHits: (ids: string[]) => void }) {
+  const [msg, setMsg] = useState("");
+  const res = useMemo(() => (msg.trim() ? link(msg) : null), [msg]);
+  const hits = new Set(res?.hits);
+  const set = (m: string) => {
+    setMsg(m);
+    onHits(m.trim() ? link(m).hits : []);
+  };
 
   return (
-    <div className="reveal copy" data-no-drag>
-      <label className="block rounded-[18px] border border-line-2 bg-bg-2 p-5 transition-colors focus-within:border-thread sm:p-6">
-        <span className="eyebrow block">Commit message</span>
-        <span className="mono mt-3 flex items-baseline gap-2 text-[14px]">
-          <span className="shrink-0 text-fg-3">$ git commit -m</span>
-          <input
-            value={msg}
-            onChange={(e) => setMsg(e.target.value)}
-            spellCheck={false}
-            maxLength={90}
-            className="min-w-0 flex-1 bg-transparent text-fg caret-thread outline-none"
-            aria-label="Commit message"
-          />
-        </span>
-      </label>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {TRY.map((t) => (
-          <button
-            key={t}
-            onClick={() => setMsg(t)}
-            className={`mono rounded-full border px-3 py-1.5 text-[11.5px] transition-colors duration-300 ${msg === t ? "border-fg-3 text-fg" : "border-line text-fg-3 hover:border-line-2 hover:text-fg-2"}`}
-          >
-            {t.length > 30 ? t.slice(0, 29) + "…" : t}
-          </button>
+    <section data-chapter id="trace" className="ch">
+      <div className="lanes" aria-hidden>
+        {GRID.map((g, i) => (
+          <div key={g.id} className="lane" data-hit={hits.has(g.id) || undefined} style={v({ "--yd": `${laneTop(i, false)}%`, "--yp": `${laneTop(i, true)}%` })}>
+            <span className="lane-id">{g.id}</span>
+            <span className="lane-title">{g.title}</span>
+            <span className="lane-state">{g.state}</span>
+          </div>
         ))}
       </div>
-      <p aria-live="polite" className="mt-5 flex min-h-[44px] gap-3 text-[14px] leading-snug text-fg-2">
-        <span
-          className={`mt-[5px] size-2 shrink-0 rounded-full ${note.tone === "link" ? "bg-thread" : note.tone === "suggest" ? "border border-thread" : "border border-fg-3"}`}
-        />
-        {note.text}
-      </p>
-      <div className="mt-4 border-t border-line">
-        {GRID.map((r) => {
-          const hit = hits.includes(r.id);
-          return (
-            <div
-              key={r.id}
-              className={`grid grid-cols-[56px_minmax(0,1fr)_auto] items-center gap-3 border-b border-line py-3 text-[13.5px] transition-colors duration-500 sm:grid-cols-[56px_minmax(0,1fr)_48px_80px] ${hit ? "bg-thread-soft" : ""}`}
-            >
-              <span className={`mono pl-2 text-[11.5px] transition-colors duration-500 ${hit ? "text-thread-ink" : "text-fg-3"}`}>{r.id}</span>
-              <span className="truncate">{r.title}</span>
-              <span className="mono hidden text-[12px] text-fg-3 sm:block">{r.tasks}</span>
-              <span className={`mono pr-2 text-right text-[11px] tracking-[0.04em] uppercase ${STATE_STYLE[r.state]}`}>{hit ? "← commit" : r.state}</span>
+      <div className="chapter-gap" />
+      <div className="sheet">
+        <div className="max-w-[32rem]" data-scrub="0.9 0.4">
+          <p className="eyebrow">02 · Link</p>
+          <h2 className="display ch-title mt-5 text-balance">
+            Commits find their <em>requirement.</em>
+          </h2>
+          <p className="ch-lede">
+            Write LF-12 in a commit message and it links itself. Anything else gets a suggested match, and a teammate confirms it. Try it.
+          </p>
+          <div className="term mt-8" data-solid>
+            <div className="term-bar">
+              <i />
+              <i />
+              <i />
+              <span className="ml-2">~/lost-and-found</span>
             </div>
-          );
-        })}
+            <label className="term-line">
+              <span>{'$ git commit -m "'}</span>
+              <input
+                value={msg}
+                onChange={(ev) => set(ev.target.value)}
+                maxLength={90}
+                placeholder="type a message"
+                aria-label="Commit message"
+                spellCheck={false}
+                autoComplete="off"
+              />
+              <span>{'"'}</span>
+            </label>
+            <p className="term-note" data-tone={res?.note.tone} aria-live="polite">
+              {res ? <Ids text={res.note.text} /> : "Type a commit message, or pick one below."}
+            </p>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2" data-solid>
+            {TRY.map((t) => (
+              <button key={t} type="button" title={t} className="try-chip" onClick={() => set(t)}>
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Meter({ label, value, low }: { label: string; value: number; low?: boolean }) {
+  return (
+    <div>
+      <p className="mb-1.5 flex text-[11px] text-fg-3">
+        <span className="md:hidden">{label}</span>
+        <span className="mono ml-auto">{value}%</span>
+      </p>
+      <div className="bar" data-low={low || undefined}>
+        <i style={v({ "--v": value / 100 })} />
       </div>
     </div>
-  );
-}
-
-function DemoButton({ as, variant = "ghost", children }: { as: "student" | "mentor"; variant?: "primary" | "ghost" | "pill" | "text"; children: ReactNode }) {
-  const cls = {
-    primary: "magnet group flex items-center gap-2 rounded-full bg-fg px-6 py-3 text-[15px] font-medium text-bg",
-    ghost: "magnet rounded-full border border-line-2 px-7 py-3.5 text-[15px] font-medium hover:border-fg-3",
-    pill: "flex items-center gap-2 rounded-full bg-fg px-4 py-2 text-[13px] font-medium text-bg transition-transform duration-300 hover:scale-[1.03]",
-    text: "uppercase transition-colors hover:text-fg",
-  }[variant];
-  return (
-    <form action="/auth/demo" method="post" className="contents">
-      <input type="hidden" name="as" value={as} />
-      <button data-magnet={variant === "primary" || variant === "ghost" ? "" : undefined} className={cls}>
-        {variant === "pill" && <span className="size-1.5 animate-pulse rounded-full bg-thread" />}
-        {children}
-        {variant === "primary" && <Icon name="arrow" size={16} className="transition-transform duration-300 group-hover:translate-x-0.5" />}
-      </button>
-    </form>
-  );
-}
-
-/** Counts to 100 no faster than a beat, draws the thread across, then wipes up and away. */
-function Loader({ progress, onDone }: { progress: number; onDone: () => void }) {
-  const [n, setN] = useState(0);
-  const [exit, setExit] = useState(false);
-  const target = useRef(0);
-  const done = useRef(onDone);
-  useEffect(() => {
-    target.current = progress * 100;
-  }, [progress]);
-  useEffect(() => {
-    done.current = onDone;
-  }, [onDone]);
-  useEffect(() => {
-    let raf = 0;
-    let v = 0;
-    let timer = 0;
-    const step = () => {
-      v = Math.min(target.current, v + Math.max(0.25, (target.current - v) * 0.06));
-      setN(v);
-      if (v >= 100) {
-        timer = window.setTimeout(() => {
-          setExit(true);
-          done.current();
-        }, 220);
-        return;
-      }
-      raf = requestAnimationFrame(step);
-    };
-    raf = requestAnimationFrame(step);
-    return () => {
-      cancelAnimationFrame(raf);
-      clearTimeout(timer);
-    };
-  }, []);
-
-  return (
-    <div aria-hidden className={`loader fixed inset-0 z-50 flex flex-col justify-between bg-bg px-5 py-6 sm:px-10 sm:py-8 ${exit ? "loader-out" : ""}`}>
-      <div className="mono flex justify-between text-[11px] tracking-[0.08em] text-fg-3 uppercase">
-        <span className="flex items-center gap-2 text-fg">
-          <Mark className="text-thread" /> trace
-        </span>
-        <span>Untangling the work</span>
-      </div>
-      <div className="relative h-px w-full bg-line">
-        <div className="absolute inset-0 origin-left bg-thread" style={{ transform: `scaleX(${n / 100})` }} />
-      </div>
-      <div className="flex items-end justify-between">
-        <span className="mono text-[11px] tracking-[0.08em] text-fg-3 uppercase">Every requirement, traced</span>
-        <span className="figure text-[clamp(72px,13vw,200px)] leading-[0.8] text-fg">{pad(Math.floor(n))}</span>
-      </div>
-    </div>
-  );
-}
-
-/** Without WebGL2 or with reduced motion: a still drawing of the tangle. */
-function Poster() {
-  return (
-    <svg aria-hidden className="fixed inset-0 h-dvh w-full" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
-      {Array.from({ length: 64 }, (_, i) => {
-        const a = (i / 64) * 180;
-        const r = 250 + (i % 7) * 16;
-        return <ellipse key={i} cx={1120} cy={380} rx={r} ry={r * (0.32 + (i % 5) * 0.13)} transform={`rotate(${a} 1120 380)`} stroke="rgb(236 232 222 / 0.08)" fill="none" />;
-      })}
-      <ellipse cx={1120} cy={380} rx={290} ry={150} transform="rotate(-24 1120 380)" stroke="#ee3524" strokeWidth={2} fill="none" />
-    </svg>
   );
 }

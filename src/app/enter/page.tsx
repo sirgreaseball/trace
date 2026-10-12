@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { Wordmark } from "@/components/brand";
 import { safeNext } from "@/lib/format";
 import { currentUser } from "@/lib/supabase/server";
-import { ThreadCanvas } from "@/components/splash/thread-canvas";
+import { RopeCanvas } from "@/components/splash/rope-canvas";
 import { EnterForm } from "./enter-form";
 
 export const metadata: Metadata = { title: "Enter" };
@@ -16,21 +16,21 @@ export default async function EnterPage(props: PageProps<"/enter">) {
 
   return (
     <main className="grid min-h-dvh lg:grid-cols-[1.1fr_1fr]">
-      <section className="relative hidden overflow-hidden bg-[#0c0c0a] text-[#ece8de] lg:block">
-        <ThreadCanvas formation={2} className="absolute inset-0 h-full w-full" />
+      <section className="relative hidden overflow-hidden border-r border-line bg-bg-2 lg:block">
+        <RopeCanvas className="absolute inset-0" />
         <div className="pointer-events-none relative flex h-full flex-col justify-between p-12 [&_a]:pointer-events-auto">
-          <Wordmark className="text-[#ece8de]" />
-          <div className="max-w-md pb-[22vh]">
-            <p className="display text-[88px]">
+          <Wordmark />
+          <div className="max-w-md">
+            <p className="eyebrow mb-5">For student software teams and their mentors</p>
+            <p className="display text-[clamp(48px,5vw,76px)]">
               Every requirement,
               <br />
               <em>traced.</em>
             </p>
-            <p className="mt-7 max-w-sm text-[15px] leading-relaxed text-[#a29d90]">
+            <p className="mt-6 max-w-sm text-[15px] leading-relaxed text-fg-2">
               Stories, tasks, commits and decisions, linked to the people who did the work.
             </p>
           </div>
-          <p className="eyebrow text-[#6c685e]">For student software teams and their mentors</p>
         </div>
       </section>
 
