@@ -125,4 +125,7 @@ test("conflicting decisions are flagged until one supersedes the other", () => {
   assert.equal(conflicts([a, b]).length, 1);
   assert.equal(conflicts([a, { ...b, supersedes: "d1" }]).length, 0);
   assert.equal(conflicts([a, b], new Set(["d1:d2"])).length, 0);
+  // Shared reasons alone aren't a conflict when the titles are about different things.
+  const c = decision("d3", 3, "Use Supabase instead of Firebase", "We need joins to match items, and students only edit their own posts; notifications later", "a");
+  assert.equal(conflicts([c, a]).length, 0);
 });

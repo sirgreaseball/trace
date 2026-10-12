@@ -1,11 +1,7 @@
-import Link from "next/link";
+import { Splash } from "@/components/splash/splash";
+import { currentUser } from "@/lib/supabase/server";
 
-export default function Home() {
-  return (
-    <main className="grid min-h-dvh place-items-center">
-      <Link href="/enter" className="btn btn-thread">
-        Enter Trace
-      </Link>
-    </main>
-  );
+export default async function Home() {
+  const user = await currentUser();
+  return <Splash signedIn={!!user} />;
 }

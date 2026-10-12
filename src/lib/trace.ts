@@ -499,7 +499,10 @@ export function conflicts(decisions: Decision[], dismissed: Set<string> = new Se
       const wb = bag(b);
       const shared = [...wa].filter((w) => wb.has(w));
       const jaccard = shared.length / (wa.size + wb.size - shared.length || 1);
-      if (shared.length >= 3 && jaccard >= 0.12) out.push({ earlier: a, later: b, shared });
+      // The titles must be about the same thing, not just the reasons.
+      const ta = new Set(words(a.title));
+      const sameSubject = words(b.title).some((w) => ta.has(w));
+      if (sameSubject && shared.length >= 3 && jaccard >= 0.12) out.push({ earlier: a, later: b, shared });
     }
   }
   return out;
