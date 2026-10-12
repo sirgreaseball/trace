@@ -2,7 +2,9 @@
 
 import Lenis from "lenis";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { refs, suggest } from "@/lib/trace";
+import type { Story } from "@/lib/types";
 import { Mark } from "../brand";
 import { Icon } from "../icons";
 import { ThreadEngine, canRunGL, renderScale } from "./engine";
@@ -10,6 +12,7 @@ import { ThreadEngine, canRunGL, renderScale } from "./engine";
 // Each chapter of the page maps to one thread formation, in order:
 // tangle, wild tangle, loom, ropes, helix, field of knots, line.
 const RAIL = ["Intro", "The problem", "Trace", "Receipts", "Viva", "Mentors", "Start"];
+const pad = (n: number) => String(n).padStart(2, "0");
 
 // Everything below is the live demo data (scripts/seed-demo.ts prints it).
 const GRID = [
@@ -20,6 +23,8 @@ const GRID = [
   { id: "LF-23", title: "Moderation queue for the security office", state: "Planned", tasks: "0/2", commits: 0 },
   { id: "LF-26", title: "Map of drop-off points", state: "Untraced", tasks: "-", commits: 0 },
 ] as const;
+const STORIES = GRID.map((g) => ({ id: g.id, number: Number(g.id.slice(3)), title: g.title }) as Story);
+const TRY = ["LF-16: lock the claim after three wrong answers", "add category filter to the item search", "fix footer typo"];
 
 const RECEIPT = [
   { kind: "COMMIT a10e5e2", title: "limit wrong answers on claim dialog", detail: "+38 -5" },
@@ -38,26 +43,41 @@ const TEAMS = [
 ];
 
 const STATE_STYLE: Record<string, string> = {
-  Traced: "bg-[#ff5233]/12 text-[#ff7a5e]",
-  Building: "bg-white/[0.07] text-[#d4d4d6]",
-  Planned: "bg-white/[0.04] text-[#a1a1a4]",
-  Untraced: "bg-[#f2b544]/10 text-[#f2b544]",
+  Traced: "text-thread-ink",
+  Building: "text-fg",
+  Planned: "text-fg-2",
+  Untraced: "text-warn",
 };
+
+// The problem, read word by word as you scroll. Starred runs are set in italic red.
+const PROBLEM = "Four people, one repo, eight weeks. By the viva, nobody can say *who built what,* or *why it changed.*"
+  .split(" ")
+  .reduce<{ w: string; em: boolean }[]>((out, w) => {
+    const open = w.startsWith("*") || (out.at(-1)?.em && !out.at(-1)!.w.endsWith("*"));
+    out.push({ w, em: !!open });
+    return out;
+  }, [])
+  .map((x) => ({ w: x.w.replaceAll("*", ""), em: x.em }));
 
 export function Splash() {
   const canvas = useRef<HTMLCanvasElement>(null);
   const root = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<"loading" | "gl" | "poster">("loading");
   const [loaded, setLoaded] = useState(0);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const el = root.current!;
     const sections = [...el.querySelectorAll<HTMLElement>("[data-chapter]")];
     const bar = el.querySelector<HTMLElement>("[data-progress]")!;
-    const marker = el.querySelector<HTMLElement>("[data-rail-marker]");
-    const railBox = marker?.parentElement ?? null;
+    const foot = el.querySelector<HTMLElement>("[data-foot]");
+    const chNum = el.querySelector<HTMLElement>("[data-ch-num]");
+    const chName = el.querySelector<HTMLElement>("[data-ch-name]");
     const railItems = [...el.querySelectorAll<HTMLElement>("[data-rail-item]")];
+    const dot = el.querySelector<HTMLElement>("[data-cursor-dot]");
+    const ring = el.querySelector<HTMLElement>("[data-cursor-ring]");
     const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const fine = matchMedia("(pointer: fine)").matches;
     const nogl = new URLSearchParams(location.search).has("nogl");
     const mobile = innerWidth < 768;
     const gl = !reduced && !nogl && canRunGL();
@@ -79,6 +99,7 @@ export function Splash() {
     setMode(engine ? "gl" : "poster");
 
     const lenis = reduced ? null : new Lenis({ lerp: 0.085, wheelMultiplier: 0.9 });
+    const go = (y: number, duration = 1.6) => (lenis ? lenis.scrollTo(y, { duration }) : scrollTo({ top: y }));
 
     // Anchors: the scroll position where each chapter sits centred on screen.
     let anchors: number[] = [];
@@ -101,14 +122,17 @@ export function Splash() {
       return anchors.length - 1;
     };
 
-    // Chapter rail: jump to a chapter.
-    const onRail = (e: Event) => {
-      const i = railItems.indexOf(e.currentTarget as HTMLElement);
-      const y = Math.max(0, anchors[i] ?? 0);
-      if (lenis) lenis.scrollTo(y, { duration: 1.6 });
-      else scrollTo({ top: y });
-    };
+    // Chapter ticks and in-page links.
+    const onRail = (e: Event) => go(Math.max(0, anchors[railItems.indexOf(e.currentTarget as HTMLElement)] ?? 0));
     railItems.forEach((r) => r.addEventListener("click", onRail));
+    const onJump = (e: Event) => {
+      const t = (e.target as Element).closest<HTMLElement>("[data-jump]");
+      if (!t) return;
+      e.preventDefault();
+      const i = Number(t.dataset.jump);
+      go(i < 0 ? 0 : Math.max(0, anchors[i] ?? 0), i < 0 ? 2.2 : 1.6);
+    };
+    el.addEventListener("click", onJump);
 
     // Magnetic buttons: lean a few pixels toward the pointer.
     const magnets = reduced ? [] : [...el.querySelectorAll<HTMLElement>("[data-magnet]")];
@@ -127,8 +151,28 @@ export function Splash() {
       m.addEventListener("pointerleave", offMagnet);
     });
 
-    const onPointer = (e: PointerEvent) => engine?.setPointer(e.clientX, e.clientY);
-    const onLeave = () => engine?.clearPointer();
+    // Cursor: a dot that sticks to the pointer and a ring that trails it.
+    const useCursor = fine && !reduced && !!dot && !!ring;
+    if (useCursor) el.dataset.cursor = "";
+    const cur = { x: -100, y: -100, rx: -100, ry: -100 };
+    const cursorState = (t: EventTarget | null) => {
+      if (!(t instanceof Element)) return "drag";
+      if (t.closest("input, textarea")) return "text";
+      if (t.closest("a, button")) return "link";
+      if (t.closest("[data-no-drag], p, h1, h2, li")) return "plain";
+      return engine ? "drag" : "plain";
+    };
+
+    const onPointer = (e: PointerEvent) => {
+      engine?.setPointer(e.clientX, e.clientY);
+      cur.x = e.clientX;
+      cur.y = e.clientY;
+      if (useCursor) el.dataset.cursorState = cursorState(e.target);
+    };
+    const onLeave = () => {
+      engine?.clearPointer();
+      if (useCursor) el.dataset.cursorState = "out";
+    };
     let down: { x: number; moved: boolean } | null = null;
     const interactive = (t: EventTarget | null) => t instanceof Element && !!t.closest("a, button, input, [data-no-drag]");
     const onDown = (e: PointerEvent) => {
@@ -167,18 +211,7 @@ export function Splash() {
     };
     document.addEventListener("visibilitychange", onVis);
 
-    // The underline slides between chapter tabs in step with the formations.
-    const placeMarker = (c: number) => {
-      if (!marker || !railBox || railItems.length === 0 || railBox.offsetParent === null) return;
-      const i = Math.min(Math.floor(c), railItems.length - 1);
-      const j = Math.min(i + 1, railItems.length - 1);
-      const f = c - i;
-      const a = railItems[i];
-      const b = railItems[j];
-      const left = a.offsetLeft + (b.offsetLeft - a.offsetLeft) * f;
-      const width = a.offsetWidth + (b.offsetWidth - a.offsetWidth) * f;
-      marker.style.transform = `translate3d(${left}px, 0, 0) scaleX(${width})`;
-    };
+    let shown = -1;
     const tick = (t: number) => {
       lenis?.raf(t);
       const y = lenis ? lenis.scroll : scrollY;
@@ -190,10 +223,21 @@ export function Splash() {
         s.style.setProperty("--v", String(Math.max(0, Math.min(1, 1.35 - Math.abs(d) * 1.7))));
         s.style.setProperty("--k", String(Math.max(0, Math.min(1, 1 - d * 1.4))));
       }
+      if (foot) foot.style.setProperty("--f", String(Math.max(0, Math.min(1, (y + vh - foot.offsetTop) / foot.offsetHeight))));
       const c = chapterAt(y);
-      placeMarker(c);
       const active = Math.round(c);
-      railItems.forEach((r, i) => r.toggleAttribute("data-active", i === active));
+      if (active !== shown) {
+        shown = active;
+        railItems.forEach((r, i) => r.toggleAttribute("data-active", i === active));
+        if (chNum) chNum.textContent = pad(active + 1);
+        if (chName) chName.textContent = RAIL[active];
+      }
+      if (useCursor) {
+        cur.rx += (cur.x - cur.rx) * 0.2;
+        cur.ry += (cur.y - cur.ry) * 0.2;
+        dot!.style.transform = `translate3d(${cur.x}px, ${cur.y}px, 0)`;
+        ring!.style.transform = `translate3d(${cur.rx}px, ${cur.ry}px, 0)`;
+      }
       if (engine) {
         engine.setChapter(c);
         engine.render((y / vh) * 0.35, false);
@@ -220,6 +264,7 @@ export function Splash() {
       cancelled = true;
       cancelAnimationFrame(raf);
       railItems.forEach((r) => r.removeEventListener("click", onRail));
+      el.removeEventListener("click", onJump);
       magnets.forEach((m) => {
         m.removeEventListener("pointermove", onMagnet);
         m.removeEventListener("pointerleave", offMagnet);
@@ -239,67 +284,93 @@ export function Splash() {
   const start = "/enter";
 
   return (
-    <div ref={root} className="splash relative overflow-x-clip bg-[#0b0b0c] text-[#ededeb] selection:bg-[#ff5233] selection:text-white">
-      <canvas ref={canvas} aria-hidden className={`fixed inset-0 h-dvh w-full transition-opacity duration-[1400ms] ${mode === "gl" && loaded === 1 ? "opacity-100" : "opacity-0"}`} />
+    <div ref={root} data-ready={ready ? "" : undefined} className="splash grain relative overflow-x-clip bg-bg text-fg">
+      <canvas ref={canvas} aria-hidden className={`fixed inset-0 h-dvh w-full transition-opacity duration-[1800ms] ${mode === "gl" && ready ? "opacity-100" : "opacity-0"}`} />
       {mode === "poster" && <Poster />}
-      <div aria-hidden className="pointer-events-none fixed inset-0 bg-[radial-gradient(110%_75%_at_12%_85%,rgb(11_11_12/0.86),transparent_58%)] max-md:bg-[linear-gradient(to_bottom,rgb(11_11_12/0.1),rgb(11_11_12/0.72))]" />
+      <div aria-hidden className="pointer-events-none fixed inset-0 bg-[radial-gradient(110%_75%_at_12%_85%,rgb(12_12_10/0.86),transparent_58%)] max-md:bg-[linear-gradient(to_bottom,rgb(12_12_10/0.1),rgb(12_12_10/0.72))]" />
 
-      <Loader progress={loaded} done={loaded === 1} />
+      <Loader progress={loaded} onDone={() => setReady(true)} />
+
+      <div aria-hidden className="cursor-dot" data-cursor-dot />
+      <div aria-hidden className="cursor-ring" data-cursor-ring>
+        <span>Drag</span>
+      </div>
 
       <header className="fixed inset-x-0 top-0 z-30">
-        <div className="h-px w-full origin-left bg-[#ff5233]" data-progress style={{ transform: "scaleX(0)" }} />
-        <nav className="mx-auto flex h-16 max-w-[1400px] items-center justify-between bg-gradient-to-b from-[#0b0b0c] via-[#0b0b0c]/75 to-transparent px-5 sm:h-[72px] sm:px-10">
-          <Link href="/" className="flex items-center gap-2 text-[17px] font-semibold tracking-[-0.03em]" aria-label="Trace home">
-            <Mark className="text-[#ff5233]" /> trace
+        <div className="h-px w-full origin-left bg-thread" data-progress style={{ transform: "scaleX(0)" }} />
+        <nav className="mx-auto grid h-16 max-w-[1400px] grid-cols-[1fr_auto] items-center bg-gradient-to-b from-bg via-bg/70 to-transparent px-5 sm:h-[76px] sm:px-10 md:grid-cols-[1fr_auto_1fr]">
+          <Link href="/" className="flex items-center gap-2 text-[17px] font-medium tracking-[-0.03em]" aria-label="Trace home">
+            <Mark className="text-thread" /> trace
           </Link>
-          <ul aria-label="Chapters" className="rail relative hidden items-center lg:flex">
-            {RAIL.map((r) => (
-              <li key={r}>
-                <button data-rail-item className="rail-item px-3 py-2 text-[13px] text-[#6b6b70] transition-colors duration-300 hover:text-[#ededeb]">
-                  {r}
-                </button>
-              </li>
-            ))}
-            <span data-rail-marker aria-hidden className="absolute bottom-0.5 left-0 h-px w-px origin-left bg-[#ff5233]" />
-          </ul>
-          <div className="flex items-center gap-1 sm:gap-2">
-            <a
-              href="https://github.com/sirgreaseball/trace"
-              target="_blank"
-              rel="noreferrer"
-              className="hidden rounded-full px-3 py-2 text-[13px] text-[#a1a1a4] transition-colors duration-200 hover:text-[#ededeb] sm:block"
-            >
+          <p className="mono hidden items-center gap-3 text-[11px] tracking-[0.08em] text-fg-3 uppercase md:flex" aria-live="polite">
+            <span>
+              <span data-ch-num className="text-fg">
+                01
+              </span>{" "}
+              / {pad(RAIL.length)}
+            </span>
+            <span className="h-px w-8 bg-line-2" />
+            <span data-ch-name className="w-24">
+              Intro
+            </span>
+          </p>
+          <div className="flex items-center justify-end gap-1 sm:gap-2">
+            <a href="https://github.com/sirgreaseball/trace" target="_blank" rel="noreferrer" className="hidden px-3 py-2 text-[13px] text-fg-2 transition-colors duration-300 hover:text-fg sm:block">
               Source
             </a>
-            <Link href={start} className="rounded-full border border-white/15 px-4 py-2 text-[13px] font-medium transition-colors duration-200 hover:border-white/40">
+            <Link href={start} className="px-3 py-2 text-[13px] text-fg-2 transition-colors duration-300 hover:text-fg">
               Sign in
             </Link>
+            <DemoButton as="student" variant="pill">
+              Live demo
+            </DemoButton>
           </div>
         </nav>
       </header>
 
+      <nav aria-label="Chapters" className="fixed top-1/2 right-6 z-30 hidden -translate-y-1/2 flex-col items-end lg:flex">
+        {RAIL.map((r, i) => (
+          <button key={r} data-rail-item aria-label={`${pad(i + 1)} ${r}`} className="group flex items-center gap-3 py-[7px]">
+            <span className="mono text-[10px] text-fg-3 uppercase opacity-0 transition-opacity duration-300 group-hover:opacity-100">{r}</span>
+            <span className="h-px w-3 bg-fg-3 transition-all duration-500 ease-[var(--ease)] group-hover:bg-fg group-data-[active]:w-8 group-data-[active]:bg-thread" />
+          </button>
+        ))}
+      </nav>
+
       <main className="relative z-10">
         {/* Intro: the tangle */}
         <section data-chapter className="chapter min-h-dvh">
-          <div className="mx-auto flex min-h-dvh max-w-[1400px] flex-col justify-end px-5 pt-24 pb-10 sm:px-10 sm:pb-14">
-            <div className="grid items-end gap-8 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-12">
-              <h1 className="hero-title text-[clamp(44px,6.6vw,112px)] leading-[0.92] font-semibold tracking-[-0.05em]">
+          <div className="mx-auto flex min-h-dvh max-w-[1400px] flex-col justify-between px-5 pt-24 pb-8 sm:px-10 sm:pt-28 sm:pb-10">
+            <div className="hero-in mono grid grid-cols-2 gap-4 text-[11px] tracking-[0.08em] text-fg-3 uppercase md:grid-cols-3" style={{ animationDelay: "0.5s" }}>
+              <span>(Trace) <span className="max-sm:hidden">Traceability workspace</span></span>
+              <span className="hidden md:block">For student software teams and their mentors</span>
+              <span className="text-right">Edition 02 / 2026</span>
+            </div>
+
+            <div>
+              <h1 className="hero-title display text-[clamp(56px,10.6vw,190px)] leading-[0.86]">
                 <span className="line">
-                  <span style={{ animationDelay: "0.1s" }}>Every requirement,</span>
+                  <span style={{ animationDelay: "0.05s" }}>Every requirement,</span>
                 </span>
                 <span className="line">
-                  <span className="text-[#ff5233]" style={{ animationDelay: "0.22s" }}>
-                    traced.
+                  <span style={{ animationDelay: "0.17s" }}>
+                    <em className="pr-[0.06em] text-thread">traced.</em>
                   </span>
                 </span>
               </h1>
-              <div className="hero-in copy lg:pb-4" style={{ animationDelay: "0.45s" }}>
-                <p className="max-w-[36ch] text-[17px] leading-relaxed text-[#a1a1a4]">Trace links your team&apos;s stories, commits and decisions to the people behind them.</p>
-                <div className="mt-7 flex flex-wrap items-center gap-3">
-                  <DemoButton as="student" primary>
+
+              <div className="mt-10 grid items-end gap-8 border-t border-line pt-6 md:grid-cols-[1fr_minmax(0,420px)_auto] md:gap-10">
+                <button data-jump="1" className="hero-in mono hidden items-center gap-3 self-center text-[11px] tracking-[0.08em] text-fg-3 uppercase transition-colors hover:text-fg md:flex" style={{ animationDelay: "0.8s" }}>
+                  <span className="scroll-cue" /> Scroll to untangle
+                </button>
+                <p className="hero-in copy text-[17px] leading-relaxed text-fg-2" style={{ animationDelay: "0.55s" }}>
+                  Trace ties your team&apos;s stories, commits and decisions to the people behind them, so the viva never starts with &ldquo;who built this?&rdquo;
+                </p>
+                <div className="hero-in flex flex-wrap items-center gap-3" style={{ animationDelay: "0.65s" }}>
+                  <DemoButton as="student" variant="primary">
                     Try the demo
                   </DemoButton>
-                  <Link href={start} data-magnet className="magnet rounded-full border border-white/15 px-6 py-3 text-[15px] font-medium hover:border-white/40">
+                  <Link href={start} data-magnet className="magnet rounded-full border border-line-2 px-6 py-3 text-[15px] font-medium hover:border-fg-3">
                     Create a workspace
                   </Link>
                 </div>
@@ -308,80 +379,44 @@ export function Splash() {
           </div>
         </section>
 
-        {/* The problem: a wilder tangle */}
-        <section data-chapter className="chapter flex min-h-[120dvh] items-center">
-          <div className="mx-auto w-full max-w-[1400px] px-5 sm:px-10">
-            <div className="copy max-w-[820px]">
-              <h2 className="reveal-lines text-[clamp(44px,6.8vw,104px)] leading-[0.95] font-semibold tracking-[-0.045em]">
-                <span className="line" style={{ ["--i" as string]: 0 }}>
-                  <span>Group projects</span>
-                </span>
-                <span className="line" style={{ ["--i" as string]: 1 }}>
-                  <span className="text-[#6b6b70]">get tangled.</span>
-                </span>
-              </h2>
-              <div className="reveal mt-8 max-w-[44ch]">
-                <p className="text-[17px] leading-relaxed text-[#a1a1a4]">Four people, one repo, eight weeks. By the viva, nobody can say who built what, or why it changed.</p>
-                <ul className="mt-8 space-y-3 text-[15px] text-[#d4d4d6]">
-                  {["Who actually built the claim flow?", "Why did we switch to email alerts?", "Is “report a lost item” really done?"].map((q, i) => (
-                    <li key={q} className="flex items-center gap-4" style={{ opacity: `calc(var(--k) * 3 - ${i})` }}>
-                      <span className="h-px w-8 bg-[#ff5233]" /> {q}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+        {/* The problem: a wilder tangle. Pinned while the sentence reads itself in. */}
+        <section data-chapter className="chapter min-h-[190dvh]">
+          <div className="sticky top-0 flex min-h-dvh items-center">
+            <div className="mx-auto w-full max-w-[1400px] px-5 sm:px-10">
+              <Eyebrow n={2}>The problem</Eyebrow>
+              <p className="copy display mt-8 max-w-[17ch] text-[clamp(40px,5.8vw,96px)] leading-[0.98]">
+                {PROBLEM.map((x, i) => (
+                  <span key={i} className={x.em ? "text-thread italic" : undefined} style={{ opacity: `clamp(0.1, calc(var(--k) * ${PROBLEM.length * 1.2} - ${i}), 1)` }}>
+                    {x.w}{" "}
+                  </span>
+                ))}
+              </p>
+              <ol className="mt-12 grid max-w-[1100px] border-t border-line md:grid-cols-3">
+                {["Who actually built the claim flow?", "Why did we switch to email alerts?", "Is “report a lost item” really done?"].map((q, i) => (
+                  <li
+                    key={q}
+                    className="flex gap-4 border-b border-line py-4 text-[15px] text-fg-2 md:border-r md:border-b-0 md:px-5 md:first:pl-0 md:last:border-r-0"
+                    style={{ opacity: `clamp(0, calc((var(--k) - 0.72) * 14 - ${i}), 1)` }}
+                  >
+                    <span className="mono pt-[3px] text-[11px] text-thread">{pad(i + 1)}</span> {q}
+                  </li>
+                ))}
+              </ol>
             </div>
           </div>
         </section>
 
         {/* Trace: the loom */}
-        <section data-chapter className="chapter flex min-h-[130dvh] items-center">
-          <div className="mx-auto w-full max-w-[1400px] px-5 sm:px-10">
-            <div className="copy max-w-[760px]">
-              <h2 className="reveal-lines text-[clamp(40px,5.6vw,88px)] leading-[0.95] font-semibold tracking-[-0.045em]">
-                <span className="line" style={{ ["--i" as string]: 0 }}>
-                  <span>Commits find</span>
-                </span>
-                <span className="line" style={{ ["--i" as string]: 1 }}>
-                  <span>their requirement.</span>
-                </span>
-              </h2>
-              <p className="reveal mt-7 max-w-[50ch] text-[17px] leading-relaxed text-[#a1a1a4]">
-                Write <span className="font-mono text-[15px] text-[#ededeb]">LF-12</span> in a commit message and it links itself. For everything else, Trace suggests a match and a teammate confirms it.
+        <section data-chapter className="chapter flex min-h-[140dvh] items-center">
+          <div className="mx-auto grid w-full max-w-[1400px] gap-12 px-5 sm:px-10 xl:grid-cols-[minmax(0,1fr)_minmax(0,640px)] xl:items-center xl:gap-16">
+            <div className="copy">
+              <Eyebrow n={3}>Trace</Eyebrow>
+              <Heading lines={["Commits find", <em key="e">their requirement.</em>]} />
+              <p className="reveal mt-7 max-w-[46ch] text-[17px] leading-relaxed text-fg-2">
+                Write <span className="mono text-[14px] text-fg">LF-12</span> in a commit message and it links itself. Anything else gets a suggested match, and a teammate confirms it. Try it.
               </p>
             </div>
-            <div className="reveal mt-12 max-w-[760px] overflow-hidden rounded-[14px] border border-white/[0.08] bg-[#111113]" data-no-drag>
-              <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-3 text-[12px] text-[#6b6b70]">
-                <span className="font-medium text-[#d4d4d6]">Trace grid</span>
-                <span>Campus Lost &amp; Found, 4 of 10 stories traced</span>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[560px] text-left text-[13px]">
-                  <thead>
-                    <tr className="text-[11.5px] text-[#6b6b70]">
-                      <th className="py-2.5 pr-3 pl-5 font-medium">ID</th>
-                      <th className="py-2.5 pr-3 font-medium">Story</th>
-                      <th className="py-2.5 pr-3 font-medium">Tasks</th>
-                      <th className="py-2.5 pr-3 text-right font-medium">Commits</th>
-                      <th className="py-2.5 pr-5 font-medium">State</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {GRID.map((r, i) => (
-                      <tr key={r.id} className="border-t border-white/[0.05]" style={{ opacity: `calc(var(--k) * 7 - ${i})` }}>
-                        <td className="py-2.5 pr-3 pl-5 font-mono text-[11.5px] text-[#6b6b70]">{r.id}</td>
-                        <td className="max-w-[260px] truncate py-2.5 pr-3">{r.title}</td>
-                        <td className="py-2.5 pr-3 text-[#a1a1a4] tabular-nums">{r.tasks}</td>
-                        <td className="py-2.5 pr-3 text-right text-[#a1a1a4] tabular-nums">{r.commits || "-"}</td>
-                        <td className="py-2.5 pr-5">
-                          <span className={`inline-flex h-[22px] items-center rounded-md px-2 text-[11.5px] font-medium ${STATE_STYLE[r.state]}`}>{r.state}</span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <TraceDemo />
           </div>
         </section>
 
@@ -389,23 +424,29 @@ export function Splash() {
         <section data-chapter className="chapter flex min-h-[140dvh] items-center">
           <div className="mx-auto grid w-full max-w-[1400px] items-center gap-14 px-5 sm:px-10 lg:grid-cols-[minmax(0,1fr)_420px]">
             <div className="copy">
-              <h2 className="reveal-lines text-[clamp(40px,5.6vw,88px)] leading-[0.95] font-semibold tracking-[-0.045em]">
-                <span className="line" style={{ ["--i" as string]: 0 }}>
-                  <span>A receipt for</span>
-                </span>
-                <span className="line" style={{ ["--i" as string]: 1 }}>
-                  <span>every person.</span>
-                </span>
-              </h2>
-              <p className="reveal mt-7 max-w-[46ch] text-[17px] leading-relaxed text-[#a1a1a4]">
+              <Eyebrow n={4}>Receipts</Eyebrow>
+              <Heading lines={["A receipt for", <em key="e">every person.</em>]} />
+              <p className="reveal mt-7 max-w-[44ch] text-[17px] leading-relaxed text-fg-2">
                 Each line is a commit, task or decision you can open. A teammate can dispute any line, and the receipt keeps both sides.
               </p>
+              <dl className="reveal mono mt-10 grid max-w-[460px] grid-cols-3 border-t border-line pt-5 text-[11px] tracking-[0.06em] text-fg-3 uppercase">
+                {[
+                  ["Lines", "14"],
+                  ["Disputed", "1"],
+                  ["Share", "28%"],
+                ].map(([k, v]) => (
+                  <div key={k}>
+                    <dt>{k}</dt>
+                    <dd className="figure mt-2 text-[40px] tracking-normal text-fg normal-case">{v}</dd>
+                  </div>
+                ))}
+              </dl>
             </div>
             <div className="receipt-print" data-no-drag>
               <div className="receipt-paper px-6 pt-8 pb-10 font-mono text-[#1c1a15]">
                 <p className="text-center text-[10.5px] tracking-[0.3em]">TRACE CONTRIBUTION RECEIPT</p>
-                <p className="mt-3 text-center font-sans text-[21px] font-semibold tracking-[-0.02em]">Meera Iyer</p>
-                <p className="text-center text-[10.5px] opacity-60">Campus Lost &amp; Found</p>
+                <p className="mt-3 text-center font-serif text-[30px] leading-none">Meera Iyer</p>
+                <p className="mt-1 text-center text-[10.5px] opacity-60">Campus Lost &amp; Found</p>
                 <div className="receipt-rule" />
                 {RECEIPT.map((l, i) => (
                   <div key={l.kind} className="mb-3 text-[11.5px]" style={{ opacity: `calc(var(--k) * 6 - ${i + 0.5})` }}>
@@ -416,13 +457,13 @@ export function Splash() {
                       </span>
                       <span className="text-[10.5px]">{l.detail}</span>
                     </div>
-                    {l.disputed && <p className="mt-1.5 border-l-2 border-[#c2410c] pl-2 text-[10.5px] leading-snug">DISPUTED. {l.disputed}</p>}
+                    {l.disputed && <p className="mt-1.5 border-l-2 border-[#c22a17] pl-2 text-[10.5px] leading-snug">DISPUTED. {l.disputed}</p>}
                   </div>
                 ))}
                 <div className="receipt-rule" />
                 <div className="flex items-baseline justify-between text-[12px] font-semibold" style={{ opacity: "calc(var(--k) * 6 - 5)" }}>
                   <span>SHARE OF TEAM WORK</span>
-                  <span className="text-[21px]">28%</span>
+                  <span className="font-serif text-[30px] font-normal">28%</span>
                 </div>
               </div>
             </div>
@@ -432,32 +473,31 @@ export function Splash() {
         {/* Viva: the helix */}
         <section data-chapter className="chapter flex min-h-[130dvh] items-center">
           <div className="mx-auto w-full max-w-[1400px] px-5 text-center sm:px-10">
-            <div className="copy mx-auto max-w-[900px]">
-              <h2 className="reveal-lines text-[clamp(40px,5.6vw,88px)] leading-[0.95] font-semibold tracking-[-0.045em]">
-                <span className="line" style={{ ["--i" as string]: 0 }}>
-                  <span>Practise the parts</span>
-                </span>
-                <span className="line" style={{ ["--i" as string]: 1 }}>
-                  <span>you didn&apos;t build.</span>
-                </span>
-              </h2>
-              <p className="reveal mx-auto mt-7 max-w-[52ch] text-[17px] leading-relaxed text-[#a1a1a4]">
+            <div className="copy mx-auto max-w-[960px]">
+              <Eyebrow n={5} center>
+                Viva
+              </Eyebrow>
+              <Heading lines={["Practise the parts", <em key="e">you didn&apos;t build.</em>]} />
+              <p className="reveal mx-auto mt-7 max-w-[52ch] text-[17px] leading-relaxed text-fg-2">
                 Questions come from your teammates&apos; code, the team&apos;s decisions and the requirements you never touched. Answers come from your own record.
               </p>
             </div>
-            <div className="viva-card reveal mx-auto mt-12 max-w-[520px] text-left" data-no-drag>
-              <div className="viva-inner relative h-[260px]">
-                <div className="viva-face absolute inset-0 flex flex-col justify-between rounded-[14px] border border-white/[0.08] bg-[#111113] p-7">
-                  <p className="text-[12px] text-[#6b6b70]">Decision D-7, made by Aarav</p>
-                  <p className="text-[24px] leading-snug font-medium tracking-[-0.02em]">The team decided on email only for match alerts. Why, and what did you give up?</p>
-                  <p className="text-[12px] text-[#6b6b70]">Say it out loud, then flip the card.</p>
+            <div className="viva-card reveal mx-auto mt-14 max-w-[540px] text-left" data-no-drag>
+              <div className="viva-inner relative h-[290px]">
+                <div className="viva-face absolute inset-0 flex flex-col justify-between rounded-[18px] border border-line bg-bg-2 p-7">
+                  <p className="mono flex justify-between text-[11px] tracking-[0.06em] text-fg-3 uppercase">
+                    <span>Decision D-7</span>
+                    <span>Made by Aarav</span>
+                  </p>
+                  <p className="display text-[clamp(26px,3vw,34px)] leading-[1.08]">The team chose email only for match alerts. Why, and what did you give up?</p>
+                  <p className="mono text-[11px] tracking-[0.06em] text-fg-3 uppercase">Say it out loud, then scroll to flip</p>
                 </div>
-                <div className="viva-face viva-back absolute inset-0 flex flex-col justify-between rounded-[14px] bg-[#ededeb] p-7 text-[#141414]">
-                  <p className="text-[12px] text-[#85858a]">From the record</p>
-                  <p className="text-[15px] leading-relaxed">
+                <div className="viva-face viva-back absolute inset-0 flex flex-col justify-between rounded-[18px] bg-[#ece8de] p-7 text-[#171612]">
+                  <p className="mono text-[11px] tracking-[0.06em] text-[#8f8a7d] uppercase">From the record</p>
+                  <p className="text-[15.5px] leading-relaxed">
                     Push notifications need a service worker and Firebase Cloud Messaging setup we don&apos;t have time for before the demo. Email alerts for matches are enough for v1.
                   </p>
-                  <p className="text-[12px] text-[#56565a]">Considered instead: push notifications (Kabir&apos;s plan)</p>
+                  <p className="text-[12.5px] text-[#5e5a50]">Considered instead: push notifications (Kabir&apos;s plan)</p>
                 </div>
               </div>
             </div>
@@ -467,50 +507,40 @@ export function Splash() {
         {/* Mentors: the field of knots */}
         <section data-chapter className="chapter flex min-h-[130dvh] items-center">
           <div className="mx-auto w-full max-w-[1400px] px-5 sm:px-10">
-            <div className="copy max-w-[760px]">
-              <h2 className="reveal-lines text-[clamp(40px,5.6vw,88px)] leading-[0.95] font-semibold tracking-[-0.045em]">
-                <span className="line" style={{ ["--i" as string]: 0 }}>
-                  <span>Every team</span>
-                </span>
-                <span className="line" style={{ ["--i" as string]: 1 }}>
-                  <span>on one page.</span>
-                </span>
-              </h2>
-              <p className="reveal mt-7 max-w-[50ch] text-[17px] leading-relaxed text-[#a1a1a4]">
+            <div className="copy max-w-[820px]">
+              <Eyebrow n={6}>Mentors</Eyebrow>
+              <Heading lines={["Every team", <em key="e">on one page.</em>]} />
+              <p className="reveal mt-7 max-w-[50ch] text-[17px] leading-relaxed text-fg-2">
                 Mentors see how much each team has traced, who is carrying the work, who went quiet and which decisions contradict each other.
               </p>
             </div>
-            <div className="reveal mt-12 overflow-x-auto rounded-[14px] border border-white/[0.08] bg-[#111113]" data-no-drag>
-              <table className="w-full min-w-[720px] text-left text-[13px]">
-                <thead>
-                  <tr className="text-[11.5px] text-[#6b6b70]">
-                    <th className="py-3 pr-4 pl-6 font-medium">Team</th>
-                    <th className="py-3 pr-4 font-medium">Traced</th>
-                    <th className="py-3 pr-4 font-medium">Balance</th>
-                    <th className="py-3 pr-6 font-medium">Needs attention</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {TEAMS.map((t, i) => (
-                    <tr key={t.key} className="border-t border-white/[0.05]" style={{ opacity: `calc(var(--k) * 6 - ${i})` }}>
-                      <td className="py-3.5 pr-4 pl-6">
-                        <span className="mr-3 inline-block w-8 rounded bg-white/[0.06] py-0.5 text-center font-mono text-[10.5px] text-[#a1a1a4]">{t.key}</span>
-                        <span className="font-medium">{t.name}</span>
-                      </td>
-                      <td className="w-44 py-3.5 pr-4">
-                        <span className="flex items-center gap-3">
-                          <span className="w-9 font-semibold tabular-nums">{t.traced}%</span>
-                          <span className="block h-[3px] w-24 overflow-hidden rounded-full bg-white/10">
-                            <span className="block h-full rounded-full bg-[#ff5233]" style={{ width: `calc(${t.traced}% * min(1, var(--k) * 1.4))` }} />
-                          </span>
-                        </span>
-                      </td>
-                      <td className="w-28 py-3.5 pr-4 text-[#a1a1a4] tabular-nums">{t.balance}%</td>
-                      <td className={`py-3.5 pr-6 ${t.flag.includes("not linked") ? "text-[#a1a1a4]" : "text-[#f2b544]"}`}>{t.flag}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="reveal copy mt-14 border-t border-line" data-no-drag>
+              <div className="mono hidden grid-cols-[minmax(0,1.3fr)_220px_110px_minmax(0,1.3fr)] gap-6 py-3 text-[10.5px] tracking-[0.08em] text-fg-3 uppercase md:grid">
+                <span>Team</span>
+                <span>Traced</span>
+                <span>Balance</span>
+                <span>Needs attention</span>
+              </div>
+              {TEAMS.map((t, i) => (
+                <div
+                  key={t.key}
+                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-6 gap-y-1 border-t border-line py-4 md:grid-cols-[minmax(0,1.3fr)_220px_110px_minmax(0,1.3fr)]"
+                  style={{ opacity: `calc(var(--k) * 6 - ${i})` }}
+                >
+                  <span className="flex items-center gap-3 text-[15px]">
+                    <span className="mono w-7 text-[10.5px] text-fg-3">{t.key}</span>
+                    {t.name}
+                  </span>
+                  <span className="flex items-center gap-4">
+                    <span className="figure w-14 text-[30px]">{t.traced}%</span>
+                    <span className="hidden h-px w-28 bg-line-2 md:block">
+                      <span className="block h-px bg-thread" style={{ width: `calc(${t.traced}% * min(1, var(--k) * 1.4))` }} />
+                    </span>
+                  </span>
+                  <span className="mono hidden text-[13px] text-fg-2 md:block">{t.balance}%</span>
+                  <span className={`col-span-2 pl-10 text-[13.5px] md:col-span-1 md:pl-0 ${t.flag.includes("not linked") ? "text-fg-2" : "text-warn"}`}>{t.flag}</span>
+                </div>
+              ))}
             </div>
           </div>
         </section>
@@ -518,66 +548,249 @@ export function Splash() {
         {/* Start: one line */}
         <section data-chapter className="chapter flex min-h-dvh flex-col items-center justify-center text-center">
           <div className="copy px-5">
-            <h2 className="reveal-lines text-[clamp(48px,8vw,128px)] leading-[0.92] font-semibold tracking-[-0.05em]">
+            <Eyebrow n={7} center>
+              Start
+            </Eyebrow>
+            <h2 className="reveal-lines display mt-6 text-[clamp(52px,8.6vw,150px)] leading-[0.9]">
               <span className="line" style={{ ["--i" as string]: 0 }}>
                 <span>Set up your team</span>
               </span>
               <span className="line" style={{ ["--i" as string]: 1 }}>
-                <span className="text-[#ff5233]">in two minutes.</span>
+                <span>
+                  <em className="pr-[0.05em] text-thread">in two minutes.</em>
+                </span>
               </span>
             </h2>
-            <p className="reveal mx-auto mt-8 max-w-[44ch] text-[17px] leading-relaxed text-[#a1a1a4]">Create a workspace, connect a public GitHub repo, then invite your team and your mentor. Free for student teams.</p>
+            <p className="reveal mx-auto mt-8 max-w-[44ch] text-[17px] leading-relaxed text-fg-2">Create a workspace, connect a public GitHub repo, then invite your team and your mentor. Free for student teams.</p>
             <div className="reveal mt-10 flex flex-wrap justify-center gap-3">
-              <Link href={start} data-magnet className="magnet rounded-full bg-[#ff5233] px-7 py-3.5 text-[15px] font-semibold text-white">
+              <Link href={start} data-magnet className="magnet group flex items-center gap-2 rounded-full bg-thread px-7 py-3.5 text-[15px] font-medium text-white">
                 Create a workspace
+                <Icon name="arrow" size={16} className="transition-transform duration-300 group-hover:translate-x-0.5" />
               </Link>
               <DemoButton as="mentor">See the mentor demo</DemoButton>
             </div>
           </div>
-          <footer className="absolute inset-x-0 bottom-0 mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-3 px-5 py-6 text-[12px] text-[#6b6b70] sm:px-10">
-            <span>Designed and built by Dhruv Sonar</span>
-            <a className="transition-colors hover:text-[#ededeb]" href="https://github.com/sirgreaseball/trace" target="_blank" rel="noreferrer">
-              Source on GitHub
-            </a>
-          </footer>
         </section>
       </main>
+
+      <footer data-foot className="relative z-10 overflow-hidden border-t border-line bg-bg px-5 pt-14 pb-6 sm:px-10">
+        <div className="mx-auto max-w-[1400px]">
+          <div className="grid gap-10 md:grid-cols-[minmax(0,1fr)_auto]">
+            <p className="max-w-[34ch] text-[15px] leading-relaxed text-fg-2">
+              Trace is a traceability workspace for student software teams and their mentors. Stories, commits, decisions and people, on one thread.
+            </p>
+            <ul className="mono grid grid-cols-2 gap-x-12 gap-y-2 text-[12px] tracking-[0.04em] text-fg-2 uppercase">
+              <li>
+                <DemoButton as="student" variant="text">
+                  Student demo
+                </DemoButton>
+              </li>
+              <li>
+                <a className="transition-colors hover:text-fg" href="https://github.com/sirgreaseball/trace" target="_blank" rel="noreferrer">
+                  Source
+                </a>
+              </li>
+              <li>
+                <DemoButton as="mentor" variant="text">
+                  Mentor demo
+                </DemoButton>
+              </li>
+              <li>
+                <Link className="transition-colors hover:text-fg" href={start}>
+                  Sign in
+                </Link>
+              </li>
+              <li>
+                <button data-jump="-1" className="uppercase transition-colors hover:text-fg">
+                  Back to top ↑
+                </button>
+              </li>
+            </ul>
+          </div>
+          <div aria-hidden className="relative mt-12 select-none">
+            <p className="display text-[clamp(120px,33vw,540px)] leading-[0.74] text-transparent [-webkit-text-stroke:1px_rgb(236_232_222/0.2)]">trace.</p>
+            <p className="display absolute inset-0 text-[clamp(120px,33vw,540px)] leading-[0.74] [clip-path:inset(calc((1-var(--f,0))*100%)_0_0_0)]">
+              trace<span className="text-thread">.</span>
+            </p>
+          </div>
+          <div className="mono mt-8 flex flex-wrap justify-between gap-3 border-t border-line pt-5 text-[11px] tracking-[0.06em] text-fg-3 uppercase">
+            <span>&copy; 2026 Trace</span>
+            <span>Designed and built by Dhruv Sonar</span>
+            <span>NMIMS Hyderabad</span>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
 
-function DemoButton({ as, primary = false, children }: { as: "student" | "mentor"; primary?: boolean; children: React.ReactNode }) {
+function Eyebrow({ n, center = false, children }: { n: number; center?: boolean; children: ReactNode }) {
+  return (
+    <p className={`reveal eyebrow flex items-center gap-3 ${center ? "justify-center" : ""}`}>
+      <span className="text-thread">({pad(n)})</span>
+      <span className="h-px w-10 bg-line-2" />
+      <span>{children}</span>
+    </p>
+  );
+}
+
+function Heading({ lines }: { lines: ReactNode[] }) {
+  return (
+    <h2 className="reveal-lines display mt-6 text-[clamp(46px,6.6vw,112px)] leading-[0.92] [&_em]:pr-[0.05em]">
+      {lines.map((l, i) => (
+        <span key={i} className="line" style={{ ["--i" as string]: i }}>
+          <span>{l}</span>
+        </span>
+      ))}
+    </h2>
+  );
+}
+
+/** The real linker running on the demo grid: type a commit message and watch it find its story. */
+function TraceDemo() {
+  const [msg, setMsg] = useState(TRY[0]);
+  const { hits, note } = useMemo(() => {
+    if (!msg.trim()) return { hits: [] as string[], note: { tone: "idle", text: "Type a commit message, or pick one below." } };
+    const named = refs(msg, "LF").map((n) => `LF-${n}`);
+    if (named.length) {
+      const known = named.filter((id) => GRID.some((g) => g.id === id));
+      return {
+        hits: known,
+        note: { tone: "link", text: `Names ${named.join(", ")}. Linked and confirmed, no one has to check it.` },
+      };
+    }
+    const s = suggest({ message: msg, files: [] }, STORIES, []);
+    if (s?.story_id) {
+      return {
+        hits: [s.story_id],
+        note: { tone: "suggest", text: `Suggests ${s.story_id}: shares “${s.shared.join("”, “")}”. A teammate confirms or rejects it.` },
+      };
+    }
+    return { hits: [], note: { tone: "none", text: "No confident match. It waits in Commits until someone links it." } };
+  }, [msg]);
+
+  return (
+    <div className="reveal copy" data-no-drag>
+      <label className="block rounded-[18px] border border-line-2 bg-bg-2 p-5 transition-colors focus-within:border-thread sm:p-6">
+        <span className="eyebrow block">Commit message</span>
+        <span className="mono mt-3 flex items-baseline gap-2 text-[14px]">
+          <span className="shrink-0 text-fg-3">$ git commit -m</span>
+          <input
+            value={msg}
+            onChange={(e) => setMsg(e.target.value)}
+            spellCheck={false}
+            maxLength={90}
+            className="min-w-0 flex-1 bg-transparent text-fg caret-thread outline-none"
+            aria-label="Commit message"
+          />
+        </span>
+      </label>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {TRY.map((t) => (
+          <button
+            key={t}
+            onClick={() => setMsg(t)}
+            className={`mono rounded-full border px-3 py-1.5 text-[11.5px] transition-colors duration-300 ${msg === t ? "border-fg-3 text-fg" : "border-line text-fg-3 hover:border-line-2 hover:text-fg-2"}`}
+          >
+            {t.length > 30 ? t.slice(0, 29) + "…" : t}
+          </button>
+        ))}
+      </div>
+      <p aria-live="polite" className="mt-5 flex min-h-[44px] gap-3 text-[14px] leading-snug text-fg-2">
+        <span
+          className={`mt-[5px] size-2 shrink-0 rounded-full ${note.tone === "link" ? "bg-thread" : note.tone === "suggest" ? "border border-thread" : "border border-fg-3"}`}
+        />
+        {note.text}
+      </p>
+      <div className="mt-4 border-t border-line">
+        {GRID.map((r) => {
+          const hit = hits.includes(r.id);
+          return (
+            <div
+              key={r.id}
+              className={`grid grid-cols-[56px_minmax(0,1fr)_auto] items-center gap-3 border-b border-line py-3 text-[13.5px] transition-colors duration-500 sm:grid-cols-[56px_minmax(0,1fr)_48px_80px] ${hit ? "bg-thread-soft" : ""}`}
+            >
+              <span className={`mono pl-2 text-[11.5px] transition-colors duration-500 ${hit ? "text-thread-ink" : "text-fg-3"}`}>{r.id}</span>
+              <span className="truncate">{r.title}</span>
+              <span className="mono hidden text-[12px] text-fg-3 sm:block">{r.tasks}</span>
+              <span className={`mono pr-2 text-right text-[11px] tracking-[0.04em] uppercase ${STATE_STYLE[r.state]}`}>{hit ? "← commit" : r.state}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function DemoButton({ as, variant = "ghost", children }: { as: "student" | "mentor"; variant?: "primary" | "ghost" | "pill" | "text"; children: ReactNode }) {
+  const cls = {
+    primary: "magnet group flex items-center gap-2 rounded-full bg-fg px-6 py-3 text-[15px] font-medium text-bg",
+    ghost: "magnet rounded-full border border-line-2 px-7 py-3.5 text-[15px] font-medium hover:border-fg-3",
+    pill: "flex items-center gap-2 rounded-full bg-fg px-4 py-2 text-[13px] font-medium text-bg transition-transform duration-300 hover:scale-[1.03]",
+    text: "uppercase transition-colors hover:text-fg",
+  }[variant];
   return (
     <form action="/auth/demo" method="post" className="contents">
       <input type="hidden" name="as" value={as} />
-      <button
-        data-magnet
-        className={
-          primary
-            ? "magnet group flex items-center gap-2 rounded-full bg-[#ededeb] px-6 py-3 text-[15px] font-semibold text-[#0b0b0c]"
-            : "magnet rounded-full border border-white/15 px-7 py-3.5 text-[15px] font-medium hover:border-white/40"
-        }
-      >
+      <button data-magnet={variant === "primary" || variant === "ghost" ? "" : undefined} className={cls}>
+        {variant === "pill" && <span className="size-1.5 animate-pulse rounded-full bg-thread" />}
         {children}
-        {primary && <Icon name="arrow" size={16} className="transition-transform duration-300 group-hover:translate-x-0.5" />}
+        {variant === "primary" && <Icon name="arrow" size={16} className="transition-transform duration-300 group-hover:translate-x-0.5" />}
       </button>
     </form>
   );
 }
 
-function Loader({ progress, done }: { progress: number; done: boolean }) {
+/** Counts to 100 no faster than a beat, draws the thread across, then wipes up and away. */
+function Loader({ progress, onDone }: { progress: number; onDone: () => void }) {
+  const [n, setN] = useState(0);
+  const [exit, setExit] = useState(false);
+  const target = useRef(0);
+  const done = useRef(onDone);
+  useEffect(() => {
+    target.current = progress * 100;
+  }, [progress]);
+  useEffect(() => {
+    done.current = onDone;
+  }, [onDone]);
+  useEffect(() => {
+    let raf = 0;
+    let v = 0;
+    let timer = 0;
+    const step = () => {
+      v = Math.min(target.current, v + Math.max(0.25, (target.current - v) * 0.06));
+      setN(v);
+      if (v >= 100) {
+        timer = window.setTimeout(() => {
+          setExit(true);
+          done.current();
+        }, 220);
+        return;
+      }
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(timer);
+    };
+  }, []);
+
   return (
-    <div aria-hidden className={`pointer-events-none fixed inset-0 z-50 grid place-items-center bg-[#0b0b0c] transition-opacity duration-700 ${done ? "opacity-0" : "opacity-100"}`}>
-      <svg width="120" height="40" viewBox="0 0 120 40" fill="none">
-        <path
-          d="M2 28H38c9 0 16-7 16-15 0-6-5-11-10.5-11S34 6.5 34 11.5C34 22 47 30 61 30h57"
-          stroke="#ff5233"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-          strokeDasharray="200"
-          style={{ strokeDashoffset: 200 * (1 - progress), transition: "stroke-dashoffset 600ms cubic-bezier(0.22,1,0.36,1)" }}
-        />
-      </svg>
+    <div aria-hidden className={`loader fixed inset-0 z-50 flex flex-col justify-between bg-bg px-5 py-6 sm:px-10 sm:py-8 ${exit ? "loader-out" : ""}`}>
+      <div className="mono flex justify-between text-[11px] tracking-[0.08em] text-fg-3 uppercase">
+        <span className="flex items-center gap-2 text-fg">
+          <Mark className="text-thread" /> trace
+        </span>
+        <span>Untangling the work</span>
+      </div>
+      <div className="relative h-px w-full bg-line">
+        <div className="absolute inset-0 origin-left bg-thread" style={{ transform: `scaleX(${n / 100})` }} />
+      </div>
+      <div className="flex items-end justify-between">
+        <span className="mono text-[11px] tracking-[0.08em] text-fg-3 uppercase">Every requirement, traced</span>
+        <span className="figure text-[clamp(72px,13vw,200px)] leading-[0.8] text-fg">{pad(Math.floor(n))}</span>
+      </div>
     </div>
   );
 }
@@ -589,9 +802,9 @@ function Poster() {
       {Array.from({ length: 64 }, (_, i) => {
         const a = (i / 64) * 180;
         const r = 250 + (i % 7) * 16;
-        return <ellipse key={i} cx={1120} cy={380} rx={r} ry={r * (0.32 + (i % 5) * 0.13)} transform={`rotate(${a} 1120 380)`} stroke="rgb(237 237 235 / 0.08)" fill="none" />;
+        return <ellipse key={i} cx={1120} cy={380} rx={r} ry={r * (0.32 + (i % 5) * 0.13)} transform={`rotate(${a} 1120 380)`} stroke="rgb(236 232 222 / 0.08)" fill="none" />;
       })}
-      <ellipse cx={1120} cy={380} rx={290} ry={150} transform="rotate(-24 1120 380)" stroke="#ff5233" strokeWidth={2} fill="none" />
+      <ellipse cx={1120} cy={380} rx={290} ry={150} transform="rotate(-24 1120 380)" stroke="#ee3524" strokeWidth={2} fill="none" />
     </svg>
   );
 }

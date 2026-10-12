@@ -190,20 +190,20 @@ void main() {
     vAlpha *= mix(1.0, 0.16, onLine);
   #endif
   #ifdef HERO
-    vColor = vec3(1.0, 0.32, 0.2);
+    vColor = vec3(1.0, 0.24, 0.16);
   #else
     // Ropes are people: four tints. Unhealthy knots in the field glow amber.
     float k = floor(aRand.x * 4.0);
-    vec3 who = k < 0.5 ? vec3(1.0, 0.62, 0.48) : k < 1.5 ? vec3(0.6, 0.78, 1.0) : k < 2.5 ? vec3(0.78, 1.0, 0.72) : vec3(1.0, 0.86, 0.55);
+    vec3 who = k < 0.5 ? vec3(1.0, 0.52, 0.42) : k < 1.5 ? vec3(0.74, 0.8, 0.9) : k < 2.5 ? vec3(0.8, 0.9, 0.72) : vec3(1.0, 0.84, 0.58);
     float g = floor(aRand.x * 24.0);
-    vec3 base = vec3(0.93, 0.91, 0.87);
+    vec3 base = vec3(0.93, 0.9, 0.83);
     float m = smoothstep(0.0, 1.0, clamp(uMix * 1.5 - aRand.w * 0.3 - aT * 0.2, 0.0, 1.0));
     float ropeA = abs(uA - 3.0) < 0.5 ? 1.0 : 0.0, ropeB = abs(uB - 3.0) < 0.5 ? 1.0 : 0.0;
     float knotA = abs(uA - 5.0) < 0.5 ? 1.0 : 0.0, knotB = abs(uB - 5.0) < 0.5 ? 1.0 : 0.0;
     float sick = mod(g, 5.0) < 0.5 ? 1.0 : 0.0;
     vColor = mix(base, who, 0.75 * mix(ropeA, ropeB, m));
     vColor = mix(vColor, vec3(1.0, 0.7, 0.25), sick * 0.85 * mix(knotA, knotB, m));
-    vColor = mix(vColor, vec3(1.0, 0.45, 0.32), step(0.965, aRand.z) * 0.8);
+    vColor = mix(vColor, vec3(1.0, 0.3, 0.2), step(0.965, aRand.z) * 0.8);
   #endif
 }
 `;
@@ -304,7 +304,7 @@ const SOFT_CLIP = {
 
 export type EngineOptions = { threads: number; samples: number; dpr: number; mobile: boolean; bloom: boolean };
 
-const BG = new Color().setRGB(11 / 255, 11 / 255, 12 / 255, LinearSRGBColorSpace);
+const BG = new Color().setRGB(12 / 255, 12 / 255, 10 / 255, LinearSRGBColorSpace);
 
 export class ThreadEngine {
   private renderer: WebGLRenderer;

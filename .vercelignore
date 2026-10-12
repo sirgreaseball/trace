@@ -2,3 +2,5 @@
 /scripts
 /supabase
 /PROGRESS.md
+/.env*
+!/.env.example

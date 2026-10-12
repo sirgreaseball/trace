@@ -16,15 +16,15 @@ export default async function EnterPage(props: PageProps<"/enter">) {
 
   return (
     <main className="grid min-h-dvh lg:grid-cols-[1.1fr_1fr]">
-      <section className="relative hidden overflow-hidden bg-[#0b0b0c] text-[#ededeb] lg:block">
+      <section className="relative hidden overflow-hidden bg-[#0c0c0a] text-[#ece8de] lg:block">
         <ThreadCanvas formation={2} className="absolute inset-0 h-full w-full" />
         <div className="pointer-events-none relative flex h-full flex-col justify-between p-12 [&_a]:pointer-events-auto">
-          <Wordmark className="text-[#ededeb]" />
+          <Wordmark className="text-[#ece8de]" />
           <div className="max-w-md pb-[22vh]">
             <p className="text-[52px] leading-[0.95] font-semibold tracking-[-0.045em]">
               Every requirement,
               <br />
-              <span className="text-[#ff5233]">traced.</span>
+              <span className="text-[#ee3524]">traced.</span>
             </p>
             <p className="mt-6 text-[15px] leading-relaxed text-[#a1a1a4]">
               Stories, tasks, commits and decisions, linked to the people who did the work.

@@ -1,22 +1,22 @@
 @import "tailwindcss";
 
-/* Trace design tokens: neutral greys, one red thread. */
+/* Trace design tokens: warm paper and ink, one red thread. */
 :root {
-  --bg: #f4f4f3;
-  --bg-2: #fbfbfa;
-  --bg-3: #e9e9e7;
-  --bg-inv: #141414;
-  --fg: #141414;
-  --fg-2: #56565a;
-  --fg-3: #85858a;
-  --line: rgb(20 20 20 / 0.08);
-  --line-2: rgb(20 20 20 / 0.15);
-  --thread: #d6361a;
-  --thread-ink: #b42a10;
-  --thread-soft: rgb(214 54 26 / 0.09);
-  --warn: #9a5d06;
-  --warn-soft: rgb(190 120 10 / 0.12);
-  --shadow: 0 1px 0 rgb(20 20 20 / 0.04), 0 10px 30px -14px rgb(20 20 20 / 0.22);
+  --bg: #eeebe4;
+  --bg-2: #f7f5f0;
+  --bg-3: #e4e0d6;
+  --bg-inv: #171612;
+  --fg: #171612;
+  --fg-2: #5e5a50;
+  --fg-3: #8f8a7d;
+  --line: rgb(23 22 18 / 0.09);
+  --line-2: rgb(23 22 18 / 0.17);
+  --thread: #d02a17;
+  --thread-ink: #a91f0f;
+  --thread-soft: rgb(208 42 23 / 0.09);
+  --warn: #8f5a07;
+  --warn-soft: rgb(176 112 10 / 0.12);
+  --shadow: 0 1px 0 rgb(23 22 18 / 0.04), 0 14px 34px -16px rgb(60 44 20 / 0.28);
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
   color-scheme: light;
@@ -24,41 +24,41 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0b0b0c;
-    --bg-2: #111113;
-    --bg-3: #19191c;
-    --bg-inv: #ededeb;
-    --fg: #ededeb;
-    --fg-2: #a1a1a4;
-    --fg-3: #6b6b70;
-    --line: rgb(255 255 255 / 0.075);
-    --line-2: rgb(255 255 255 / 0.14);
-    --thread: #ff5233;
-    --thread-ink: #ff7357;
-    --thread-soft: rgb(255 82 51 / 0.13);
-    --warn: #f2b544;
-    --warn-soft: rgb(242 181 68 / 0.12);
-    --shadow: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 16px 40px -16px rgb(0 0 0 / 0.7);
+    --bg: #0c0c0a;
+    --bg-2: #141411;
+    --bg-3: #1c1b17;
+    --bg-inv: #ece8de;
+    --fg: #ece8de;
+    --fg-2: #a29d90;
+    --fg-3: #6c685e;
+    --line: rgb(236 232 222 / 0.08);
+    --line-2: rgb(236 232 222 / 0.15);
+    --thread: #ee3524;
+    --thread-ink: #ff5a47;
+    --thread-soft: rgb(238 53 36 / 0.14);
+    --warn: #e9b04a;
+    --warn-soft: rgb(233 176 74 / 0.12);
+    --shadow: 0 1px 0 rgb(236 232 222 / 0.03) inset, 0 18px 44px -18px rgb(0 0 0 / 0.75);
     color-scheme: dark;
   }
 }
 
 :root[data-theme="dark"] {
-  --bg: #0b0b0c;
-  --bg-2: #111113;
-  --bg-3: #19191c;
-  --bg-inv: #ededeb;
-  --fg: #ededeb;
-  --fg-2: #a1a1a4;
-  --fg-3: #6b6b70;
-  --line: rgb(255 255 255 / 0.075);
-  --line-2: rgb(255 255 255 / 0.14);
-  --thread: #ff5233;
-  --thread-ink: #ff7357;
-  --thread-soft: rgb(255 82 51 / 0.13);
-  --warn: #f2b544;
-  --warn-soft: rgb(242 181 68 / 0.12);
-  --shadow: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 16px 40px -16px rgb(0 0 0 / 0.7);
+  --bg: #0c0c0a;
+  --bg-2: #141411;
+  --bg-3: #1c1b17;
+  --bg-inv: #ece8de;
+  --fg: #ece8de;
+  --fg-2: #a29d90;
+  --fg-3: #6c685e;
+  --line: rgb(236 232 222 / 0.08);
+  --line-2: rgb(236 232 222 / 0.15);
+  --thread: #ee3524;
+  --thread-ink: #ff5a47;
+  --thread-soft: rgb(238 53 36 / 0.14);
+  --warn: #e9b04a;
+  --warn-soft: rgb(233 176 74 / 0.12);
+  --shadow: 0 1px 0 rgb(236 232 222 / 0.03) inset, 0 18px 44px -18px rgb(0 0 0 / 0.75);
   color-scheme: dark;
 }
 
@@ -77,8 +77,9 @@
   --color-thread-soft: var(--thread-soft);
   --color-warn: var(--warn);
   --color-warn-soft: var(--warn-soft);
-  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-sans: var(--font-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-instrument), ui-serif, Georgia, serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
   --ease-out: var(--ease);
 }
 
@@ -140,12 +141,32 @@
 }
 
 @layer components {
-  /* Large figures: tight, tabular, same family as everything else. */
+  /* Large figures and display type: the serif carries the voice, the grotesk does the work. */
   .figure {
-    font-weight: 600;
-    letter-spacing: -0.045em;
-    font-variant-numeric: tabular-nums;
+    font-family: var(--font-serif);
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums lining-nums;
     line-height: 0.9;
+  }
+  .display {
+    font-family: var(--font-serif);
+    font-weight: 400;
+    letter-spacing: -0.025em;
+    line-height: 0.92;
+  }
+  .display em,
+  .display i {
+    font-style: italic;
+    color: var(--thread);
+  }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--fg-3);
   }
   .mono {
     font-family: var(--font-mono);
@@ -162,7 +183,7 @@
     gap: 0.45rem;
     height: 2rem;
     padding: 0 0.8rem;
-    border-radius: 8px;
+    border-radius: 999px;
     font-size: 13px;
     font-weight: 500;
     white-space: nowrap;
@@ -214,7 +235,6 @@
     height: 1.65rem;
     padding: 0 0.55rem;
     font-size: 12px;
-    border-radius: 7px;
   }
   .btn-icon {
     width: 2rem;
@@ -297,8 +317,11 @@
     border-top: 1px solid var(--line);
   }
   .label-sm {
-    font-size: 12px;
-    font-weight: 500;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 400;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
     color: var(--fg-3);
   }
   .link {
@@ -325,6 +348,25 @@
     height: 1px;
     background: linear-gradient(90deg, transparent, var(--thread) 12%, var(--thread) 88%, transparent);
   }
+}
+
+/* Film grain over everything: breaks the flatness without costing a frame. */
+.grain::after {
+  content: "";
+  position: fixed;
+  inset: -50%;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.07;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: grain 900ms steps(6) infinite;
+}
+@keyframes grain {
+  0% { transform: translate(0, 0); }
+  20% { transform: translate(-3%, 2%); }
+  40% { transform: translate(2%, -3%); }
+  60% { transform: translate(-2%, -1%); }
+  80% { transform: translate(3%, 3%); }
 }
 
 /* Thermal receipt: always paper, whatever the theme. */
@@ -366,7 +408,26 @@
   }
 }
 
-/* Splash: copy and props are driven by scroll through --v (visibility) and --k (progress). */
+/* Splash: always ink, whatever the app theme. Copy and props are driven by scroll
+   through --v (visibility) and --k (progress). */
+.splash {
+  --bg: #0c0c0a;
+  --bg-2: #141411;
+  --bg-3: #1c1b17;
+  --fg: #ece8de;
+  --fg-2: #a29d90;
+  --fg-3: #6c685e;
+  --line: rgb(236 232 222 / 0.09);
+  --line-2: rgb(236 232 222 / 0.17);
+  --thread: #ee3524;
+  --thread-ink: #ff5a47;
+  --thread-soft: rgb(238 53 36 / 0.12);
+  --warn: #e9b04a;
+  color-scheme: dark;
+}
+.splash:not([data-ready]) :is(.hero-title .line > span, .hero-in) {
+  animation-play-state: paused;
+}
 .splash .chapter {
   --v: 1;
   --k: 0;
@@ -413,13 +474,6 @@
     border-color 200ms var(--ease),
     background-color 200ms var(--ease);
 }
-.splash .rail-item[data-active] {
-  color: #ededeb;
-}
-.splash .rail [data-rail-marker] {
-  will-change: transform;
-  transition: none;
-}
 /* A soft pool of dark behind copy, so threads never fight the text. */
 .splash .copy {
   position: relative;
@@ -430,8 +484,115 @@
   inset: -16% -12%;
   z-index: -1;
   pointer-events: none;
-  background: radial-gradient(closest-side, rgb(11 11 12 / 0.82), rgb(11 11 12 / 0.5) 55%, transparent);
+  background: radial-gradient(closest-side, rgb(12 12 10 / 0.82), rgb(12 12 10 / 0.5) 55%, transparent);
 }
+/* Preloader: a counter and a thread, then a wipe upward. */
+.loader {
+  clip-path: inset(0 0 0 0);
+  transition: clip-path 1200ms cubic-bezier(0.76, 0, 0.24, 1);
+}
+.loader-out {
+  clip-path: inset(0 0 100% 0);
+  pointer-events: none;
+}
+.scroll-cue {
+  position: relative;
+  width: 1px;
+  height: 28px;
+  overflow: hidden;
+  background: var(--line-2);
+}
+.scroll-cue::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--thread);
+  animation: cue 2.2s var(--ease-in-out) infinite;
+}
+@keyframes cue {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+/* Custom cursor, fine pointers only: a dot on the pointer and a trailing ring. */
+.cursor-dot,
+.cursor-ring {
+  display: none;
+}
+.splash[data-cursor] .cursor-dot,
+.splash[data-cursor] .cursor-ring {
+  display: block;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 70;
+  pointer-events: none;
+  will-change: transform;
+}
+.splash[data-cursor],
+.splash[data-cursor] :not(input, textarea) {
+  cursor: none !important;
+}
+.cursor-dot::before {
+  content: "";
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: var(--thread);
+  transition: transform 300ms var(--ease);
+}
+.cursor-ring > span {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  margin: -23px 0 0 -23px;
+  border-radius: 50%;
+  border: 1px solid rgb(236 232 222 / 0.3);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: transparent;
+  transition:
+    transform 450ms var(--ease),
+    background-color 300ms var(--ease),
+    border-color 300ms var(--ease),
+    color 300ms var(--ease),
+    opacity 300ms var(--ease);
+}
+.splash[data-cursor-state="drag"] .cursor-ring > span {
+  transform: scale(1.35);
+  color: var(--fg-2);
+}
+.splash[data-dragging] .cursor-ring > span {
+  transform: scale(1.1);
+  border-color: var(--thread);
+}
+.splash[data-cursor-state="link"] .cursor-ring > span {
+  transform: scale(1.5);
+  background: rgb(236 232 222 / 0.06);
+  border-color: transparent;
+}
+.splash[data-cursor-state="drag"] .cursor-dot::before,
+.splash[data-cursor-state="link"] .cursor-dot::before {
+  transform: scale(0.6);
+}
+.splash[data-cursor-state="plain"] .cursor-ring > span {
+  transform: scale(0.5);
+  opacity: 0;
+}
+.splash:is([data-cursor-state="text"], [data-cursor-state="out"]) .cursor-ring > span,
+.splash:is([data-cursor-state="text"], [data-cursor-state="out"]) .cursor-dot::before {
+  opacity: 0;
+}
+
 .receipt-print {
   clip-path: inset(0 0 calc((1 - min(1, var(--k) * 1.3)) * 100%) 0);
   transform: translate3d(0, calc((1 - min(1, var(--k) * 1.3)) * -24px), 0);
