@@ -64,7 +64,7 @@ export default async function StoryPage(props: PageProps<"/w/[id]/stories/[n]">)
 
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_280px]">
         <div className="min-w-0 space-y-9">
-          {t.story.narrative && <p className="serif max-w-2xl text-[24px] leading-snug text-fg">{t.story.narrative}</p>}
+          {t.story.narrative && <p className="max-w-[62ch] border-l-2 border-thread pl-4 text-[17px] leading-relaxed text-fg">{t.story.narrative}</p>}
 
           <section>
             <SectionTitle>Acceptance criteria</SectionTitle>

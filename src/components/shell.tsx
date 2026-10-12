@@ -164,7 +164,7 @@ export function Shell({
       <main className="lg:pl-[240px] print:pl-0">
         {ws.demo && (
           <div className="border-b border-line bg-thread-soft px-4 py-1.5 text-center text-[12.5px] text-thread-ink print:hidden">
-            You&apos;re in a demo team. Look around and change anything; it resets every six hours.{" "}
+            Demo team. Change anything you like; it resets every six hours.{" "}
             <Link href="/enter" className="underline underline-offset-2">
               Start your own
             </Link>
@@ -200,9 +200,7 @@ function WorkspaceSwitcher({ ws, workspaces }: { ws: { id: string; name: string;
           <span className="block truncate text-[13.5px] font-semibold">{ws.name}</span>
           <span className="block truncate text-[11.5px] text-fg-3">{ws.course || "Workspace"}</span>
         </span>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-fg-3" aria-hidden>
-          <path d="M8 9l4-4 4 4M8 15l4 4 4-4" />
-        </svg>
+        <Icon name="updown" size={13} className="text-fg-3" />
       </button>
       {open && (
         <div className="anim-rise absolute inset-x-0 top-full z-50 mt-1 rounded-xl border border-line-2 bg-bg-2 p-1 shadow-[var(--shadow)]">

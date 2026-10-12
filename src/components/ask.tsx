@@ -131,8 +131,8 @@ export function Ask({ workspaceId, suggestions, ai }: { workspaceId: string; sug
         <div className="anim-rise mt-8">
           {res.answer ? (
             <section className="mb-8">
-              <p className="eyebrow mb-2">Answer</p>
-              <p className="serif text-[22px] leading-snug sm:text-[24px]">
+              <p className="label-sm mb-2">Answer</p>
+              <p className="max-w-[64ch] text-[17px] leading-relaxed">
                 <Cited text={res.answer} hits={res.hits} base={base} />
               </p>
               {res.provider && <p className="mt-3 text-[11.5px] text-fg-3">Written by AI ({res.provider}) from the sources below. Check the sources before you quote it.</p>}
@@ -146,7 +146,7 @@ export function Ask({ workspaceId, suggestions, ai }: { workspaceId: string; sug
           )}
           {res.hits.length > 0 && (
             <section>
-              <p className="eyebrow mb-3">Sources</p>
+              <p className="label-sm mb-3">Sources</p>
               <ol className="space-y-2">
                 {res.hits.map((h, i) => (
                   <li key={h.id}>

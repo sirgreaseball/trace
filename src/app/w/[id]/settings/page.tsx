@@ -18,7 +18,7 @@ export default async function SettingsPage(props: PageProps<"/w/[id]/settings">)
   ]);
   return (
     <>
-      <PageHeader eyebrow={v.ws.name} title="Settings" />
+      <PageHeader title="Settings" />
       <Settings
         ws={{ id: v.ws.id, name: v.ws.name, key: v.ws.key, course: v.ws.course, repo: v.ws.repo, demo: v.ws.demo }}
         me={{ id: v.me.id, role: v.me.role }}

@@ -16,7 +16,6 @@ export default async function ReceiptsPage(props: PageProps<"/w/[id]/receipts">)
   return (
     <>
       <PageHeader
-        eyebrow="Who did what"
         title="Receipts"
         sub="One receipt per person. Every line is a commit, task or decision you can open, and anyone on the team can dispute a line."
       />
@@ -34,11 +33,11 @@ export default async function ReceiptsPage(props: PageProps<"/w/[id]/receipts">)
               <span className="min-w-0 flex-1">
                 <span className="block font-medium">{memberName(v.members, t.user_id)}</span>
                 <span className="block text-[12.5px] text-fg-3">
-                  {plural(t.commits, "commit")} · {t.lines.toLocaleString("en-IN")} lines · {plural(t.tasks, "task")} done · {plural(t.decisions, "decision")}
+                  {plural(t.commits, "commit")}, {t.lines.toLocaleString("en-IN")} lines, {plural(t.tasks, "task")} done, {plural(t.decisions, "decision")}
                 </span>
               </span>
               {open(t.user_id) > 0 && <span className="chip chip-warn">{plural(open(t.user_id), "open dispute")}</span>}
-              <span className="serif w-16 text-right text-[30px] leading-none num">{pct(t.weight)}</span>
+              <span className="figure w-16 text-right text-[28px]">{pct(t.weight)}</span>
             </Link>
           </li>
         ))}

@@ -7,6 +7,7 @@ import {
   Color,
   CustomBlending,
   DoubleSide,
+  LinearSRGBColorSpace,
   Mesh,
   OneFactor,
   OneMinusSrcAlphaFactor,
@@ -17,6 +18,10 @@ import {
   Vector3,
   WebGLRenderer,
 } from "three";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 
 export const FORMATIONS = 7; // tangle, wild tangle, loom, ropes, helix, field of knots, line
 
@@ -178,6 +183,12 @@ void main() {
   vSide = aSide;
   // Edges in ascending order: Direct3D's smoothstep returns 0 for reversed edges.
   vAlpha = uAlpha * (0.45 + 0.9 * aRand.y) * (1.0 - smoothstep(uCamZ - 2.0, uCamZ + 5.0, depth));
+  #ifndef HERO
+    // Hundreds of threads stacked into one line would glare; thin them out there.
+    float settle = smoothstep(0.0, 1.0, clamp(uMix * 1.5 - aRand.w * 0.3 - aT * 0.2, 0.0, 1.0));
+    float onLine = mix(step(5.5, uA), step(5.5, uB), settle);
+    vAlpha *= mix(1.0, 0.16, onLine);
+  #endif
   #ifdef HERO
     vColor = vec3(1.0, 0.32, 0.2);
   #else
@@ -253,20 +264,21 @@ function buildGeometry(threads: number, samples: number, seed = 7) {
   return { geometry: g, perThread: (samples - 1) * 6 };
 }
 
-// How much each formation turns with scroll and drag, and where it sits
-// (world units; phones stack copy and pictures, so they get their own spots).
+// How much each formation turns with scroll and drag, where it sits and how
+// big it is (world units). Phones stack copy and pictures, so they get their own spots.
 const SPIN = [1, 0.7, 0.04, 0.06, 0.22, 0.12, 0];
+const SCALE = [1.04, 1.05, 1, 1, 1, 0.92, 1];
 const PLACE_WIDE: [number, number][] = [
-  [1.75, 0.05],
-  [1.0, 0],
-  [0, -0.55],
+  [1.2, 0.5],
+  [1.25, 0],
+  [0, -0.75],
+  [0, 0],
   [0, -0.1],
-  [0, -0.25],
-  [0.55, -0.15],
+  [0, 0.35],
   [0, 0],
 ];
 const PLACE_PHONE: [number, number][] = [
-  [0, 2.9],
+  [0, 2.75],
   [0, 0.6],
   [0, -2.3],
   [0, 0.9],
@@ -275,12 +287,31 @@ const PLACE_PHONE: [number, number][] = [
   [0, 0],
 ];
 
-export type EngineOptions = { threads: number; samples: number; dpr: number; mobile: boolean };
+// Dense crossings add up past white. Leave everything below 0.7 untouched and
+// roll the rest off smoothly, so the weave stays readable instead of clipping.
+const SOFT_CLIP = {
+  uniforms: { tDiffuse: { value: null } },
+  vertexShader: /* glsl */ `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: /* glsl */ `
+    uniform sampler2D tDiffuse;
+    varying vec2 vUv;
+    void main() {
+      vec3 c = texture2D(tDiffuse, vUv).rgb;
+      vec3 k = 0.7 + 0.3 * (1.0 - exp(-(c - 0.7) / 0.3));
+      gl_FragColor = vec4(mix(c, k, step(0.7, c)), 1.0);
+    }`,
+};
+
+export type EngineOptions = { threads: number; samples: number; dpr: number; mobile: boolean; bloom: boolean };
+
+const BG = new Color().setRGB(11 / 255, 11 / 255, 12 / 255, LinearSRGBColorSpace);
 
 export class ThreadEngine {
   private renderer: WebGLRenderer;
+  private composer: EffectComposer;
+  private bloom: UnrealBloomPass | null = null;
   private scene = new Scene();
-  private camera = new PerspectiveCamera(35, 1, 0.1, 50);
+  private camera = new PerspectiveCamera(35, 1, 0.1, 60);
   private uniforms: Record<string, { value: unknown }>;
   private field: Mesh;
   private heroCore: Mesh;
@@ -296,17 +327,22 @@ export class ThreadEngine {
   private start = performance.now();
   private frames = 0;
   private slow = 0;
+  private last = 0;
+  private size = new Vector2(1, 1);
+  // Short laptop screens: shrink the intro tangle so it clears the hero copy.
+  private introFit = 1;
   private mobile: boolean;
   private dpr: number;
-  onDegrade?: () => void;
 
   constructor(canvas: HTMLCanvasElement, opts: EngineOptions) {
     this.mobile = opts.mobile;
     this.dpr = opts.dpr;
     this.threads = opts.threads;
-    this.renderer = new WebGLRenderer({ canvas, antialias: false, alpha: true, powerPreference: "high-performance", premultipliedAlpha: true });
+    this.renderer = new WebGLRenderer({ canvas, antialias: false, alpha: false, powerPreference: "high-performance" });
+    // Colours in the shaders are written as display values, so skip colour-space conversion.
+    this.renderer.outputColorSpace = LinearSRGBColorSpace;
     this.renderer.setPixelRatio(opts.dpr);
-    this.renderer.setClearColor(new Color(0x000000), 0);
+    this.renderer.setClearColor(BG, 1);
     this.camera.position.set(0, 0, 8.5);
 
     this.uniforms = {
@@ -319,8 +355,8 @@ export class ThreadEngine {
       uSpinB: { value: 1 },
       uTilt: { value: 0.18 },
       uScale: { value: 1 },
-      uWidth: { value: 0.68 },
-      uAlpha: { value: 0.13 },
+      uWidth: { value: 0.56 },
+      uAlpha: { value: 0.085 },
       uDpr: { value: opts.dpr },
       uLens: { value: 120 * opts.dpr },
       uRes: { value: new Vector2(1, 1) },
@@ -335,27 +371,28 @@ export class ThreadEngine {
     const blend = { blending: CustomBlending, blendSrc: OneFactor, depthTest: false, depthWrite: false, transparent: true, side: DoubleSide };
     const fieldGeo = buildGeometry(opts.threads, opts.samples);
     this.perThread = fieldGeo.perThread;
-    this.field = new Mesh(
-      fieldGeo.geometry,
-      new ShaderMaterial({ vertexShader: COMMON, fragmentShader: FRAG, uniforms: this.uniforms, ...blend, blendDst: OneFactor }),
-    );
-    const heroGeo = buildGeometry(1, opts.mobile ? 260 : 420, 11).geometry;
-    const heroUniforms = { ...this.uniforms, uWidth: { value: 1.7 }, uAlpha: { value: 1.25 } };
-    const glowUniforms = { ...this.uniforms, uWidth: { value: 13 }, uAlpha: { value: 0.32 } };
-    this.heroGlow = new Mesh(
-      heroGeo,
-      new ShaderMaterial({ vertexShader: COMMON, fragmentShader: FRAG, uniforms: glowUniforms, defines: { HERO: 1, GLOW: 1 }, ...blend, blendDst: OneFactor }),
-    );
-    this.heroCore = new Mesh(
-      heroGeo,
-      new ShaderMaterial({ vertexShader: COMMON, fragmentShader: FRAG, uniforms: heroUniforms, defines: { HERO: 1 }, ...blend, blendDst: OneMinusSrcAlphaFactor }),
-    );
+    this.field = new Mesh(fieldGeo.geometry, new ShaderMaterial({ vertexShader: COMMON, fragmentShader: FRAG, uniforms: this.uniforms, ...blend, blendDst: OneFactor }));
+    const heroGeo = buildGeometry(1, opts.mobile ? 320 : 560, 11).geometry;
+    const heroUniforms = { ...this.uniforms, uWidth: { value: 1.45 }, uAlpha: { value: 1.2 } };
+    const glowUniforms = { ...this.uniforms, uWidth: { value: 9 }, uAlpha: { value: 0.16 } };
+    this.heroGlow = new Mesh(heroGeo, new ShaderMaterial({ vertexShader: COMMON, fragmentShader: FRAG, uniforms: glowUniforms, defines: { HERO: 1, GLOW: 1 }, ...blend, blendDst: OneFactor }));
+    this.heroCore = new Mesh(heroGeo, new ShaderMaterial({ vertexShader: COMMON, fragmentShader: FRAG, uniforms: heroUniforms, defines: { HERO: 1 }, ...blend, blendDst: OneMinusSrcAlphaFactor }));
     for (const m of [this.field, this.heroGlow, this.heroCore]) {
       m.frustumCulled = false;
       this.scene.add(m);
     }
     this.heroGlow.renderOrder = 1;
     this.heroCore.renderOrder = 2;
+
+    // Bloom lifts the dense parts of the weave so it reads as light, not wire.
+    this.composer = new EffectComposer(this.renderer);
+    this.composer.setPixelRatio(opts.dpr);
+    this.composer.addPass(new RenderPass(this.scene, this.camera));
+    if (opts.bloom) {
+      this.bloom = new UnrealBloomPass(new Vector2(256, 256), 0.38, 0.45, 0.62);
+      this.composer.addPass(this.bloom);
+    }
+    this.composer.addPass(new ShaderPass(SOFT_CLIP));
   }
 
   /** Compile shaders up front so the first scrolled frame doesn't stutter. */
@@ -364,7 +401,10 @@ export class ThreadEngine {
   }
 
   resize(w: number, h: number) {
+    this.size.set(w, h);
+    this.introFit = this.mobile ? 1 : Math.min(1, Math.max(0.75, (h - 300) / 600));
     this.renderer.setSize(w, h, false);
+    this.composer.setSize(w, h);
     this.camera.aspect = w / h;
     // Keep the scene's width on narrow screens by pulling the camera back.
     this.camera.position.z = w / h < 1 ? 8.5 * Math.min(1.9, 1.05 / (w / h)) : 8.5;
@@ -377,9 +417,15 @@ export class ThreadEngine {
     this.target = Math.max(0, Math.min(FORMATIONS - 1, c));
   }
 
-  setPointer(x: number, y: number, w: number, h: number) {
+  /** Jump straight to a formation, skipping the glide (used by still pages). */
+  jump(c: number) {
+    this.setChapter(c);
+    this.chapter = this.target;
+  }
+
+  setPointer(x: number, y: number) {
     // Pixels from the centre, y up, in drawing-buffer units.
-    this.pointerTarget.set((x - w / 2) * this.dpr, (h / 2 - y) * this.dpr);
+    this.pointerTarget.set((x - this.size.x / 2) * this.dpr, (this.size.y / 2 - y) * this.dpr);
   }
 
   clearPointer() {
@@ -392,8 +438,8 @@ export class ThreadEngine {
     this.spin += this.spinVel;
   }
 
-  pluck(x: number, y: number, w: number, h: number) {
-    (this.uniforms.uPluck.value as Vector2).set((x - w / 2) * this.dpr, (h / 2 - y) * this.dpr);
+  pluck(x: number, y: number) {
+    (this.uniforms.uPluck.value as Vector2).set((x - this.size.x / 2) * this.dpr, (this.size.y / 2 - y) * this.dpr);
     this.uniforms.uPluckT.value = this.uniforms.uTime.value;
   }
 
@@ -420,48 +466,50 @@ export class ThreadEngine {
     this.uniforms.uSpin.value = this.spin + scrollSpin + (frozen ? 0 : time * 0.03);
 
     const table = this.mobile ? PLACE_PHONE : PLACE_WIDE;
-    const scale = this.mobile ? 0.78 : 1;
+    const base = this.mobile ? 0.78 : 1;
     // The final line always lands just under the navigation bar.
     const halfH = Math.tan((this.camera.fov * Math.PI) / 360) * this.camera.position.z;
-    const at = (k: number) => (k === FORMATIONS - 1 ? [0, halfH * 0.8 - 2.2 * scale] : table[k]);
+    const at = (k: number) => (k === FORMATIONS - 1 ? [0, halfH * 0.8 - 2.2 * base] : table[k]);
     const pa = at(a);
     const pb = at(b);
     (this.uniforms.uOffset.value as Vector3).set(pa[0] + (pb[0] - pa[0]) * e, pa[1] + (pb[1] - pa[1]) * e, 0);
-    this.uniforms.uScale.value = scale;
+    const sa = SCALE[a] * (a === 0 ? this.introFit : 1);
+    const sb = SCALE[b] * (b === 0 ? this.introFit : 1);
+    this.uniforms.uScale.value = base * (sa + (sb - sa) * e);
 
     this.pointer.lerp(this.pointerTarget, this.pointerTarget.x < -9000 ? 1 : 0.18);
     (this.uniforms.uPointer.value as Vector2).copy(this.pointer);
 
-    this.renderer.render(this.scene, this.camera);
+    this.composer.render();
     this.watch(now);
   }
 
-  // If the first two seconds run slow, halve the resolution, then the threads.
-  private last = 0;
+  // If the first seconds run slow, drop bloom, then resolution, then threads.
   private watch(now: number) {
-    if (this.last && this.frames < 150) {
+    if (this.last && this.frames < 120) {
       if (now - this.last > 24) this.slow++;
       this.frames++;
-      if (this.frames === 150 && this.slow > 60) this.degrade();
+      if (this.frames === 120 && this.slow > 50) this.degrade();
     }
     this.last = now;
   }
 
   private degrade() {
-    if (this.dpr > 1) {
+    if (this.bloom?.enabled) {
+      this.bloom.enabled = false;
+    } else if (this.dpr > 1) {
       this.dpr = 1;
       this.renderer.setPixelRatio(1);
+      this.composer.setPixelRatio(1);
       this.uniforms.uDpr.value = 1;
       this.uniforms.uLens.value = 120;
-      const size = this.renderer.getSize(new Vector2());
-      this.resize(size.x, size.y);
+      this.resize(this.size.x, this.size.y);
     } else {
       this.threads = Math.max(80, Math.floor(this.threads / 2));
       this.field.geometry.setDrawRange(0, this.threads * this.perThread);
     }
     this.frames = 0;
     this.slow = 0;
-    this.onDegrade?.();
   }
 
   dispose() {
@@ -469,15 +517,22 @@ export class ThreadEngine {
       m.geometry.dispose();
       (m.material as ShaderMaterial).dispose();
     }
+    this.bloom?.dispose();
+    this.composer.dispose();
     this.renderer.dispose();
   }
 }
 
 export function canRunGL() {
   try {
-    const c = document.createElement("canvas");
-    return !!c.getContext("webgl2");
+    return !!document.createElement("canvas").getContext("webgl2");
   } catch {
     return false;
   }
+}
+
+/** Supersample: render above the screen's density so hairlines stay smooth. */
+export function renderScale(mobile: boolean) {
+  const dpr = window.devicePixelRatio || 1;
+  return mobile ? Math.min(dpr, 2) : Math.min(2, Math.max(1.5, dpr * 1.5));
 }

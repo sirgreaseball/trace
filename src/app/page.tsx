@@ -1,7 +1,6 @@
 import { Splash } from "@/components/splash/splash";
-import { currentUser } from "@/lib/supabase/server";
 
-export default async function Home() {
-  const user = await currentUser();
-  return <Splash signedIn={!!user} />;
+// Static: signed-in visitors who press Sign in are sent on to their workspaces by /enter.
+export default function Home() {
+  return <Splash />;
 }

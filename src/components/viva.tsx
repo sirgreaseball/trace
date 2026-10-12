@@ -69,10 +69,11 @@ export function Viva({ workspaceId, questions, ai }: { workspaceId: string; ques
     const weak = questions.filter((x) => marks[x.id] !== "knew");
     return (
       <div className="anim-rise">
-        <p className="eyebrow mb-3">Round done</p>
-        <p className="serif text-[44px] leading-none">
-          {count("knew")} of {questions.length} <span className="text-fg-3">known cold</span>
+        <p className="label-sm mb-3">Round done</p>
+        <p className="figure text-[44px]">
+          {count("knew")} of {questions.length}
         </p>
+        <p className="mt-2 text-fg">answered without looking</p>
         <p className="mt-3 text-fg-2">
           {count("shaky")} shaky, {count("missed")} missed. Read the evidence for these before the real thing:
         </p>
@@ -125,7 +126,7 @@ export function Viva({ workspaceId, questions, ai }: { workspaceId: string; ques
             <span className={`chip ${q.kind === "decision" ? "chip-thread" : ""}`}>{q.kind === "commit" ? "Code" : q.kind === "decision" ? "Decision" : "Requirement"}</span>
             <span className="mono">{q.topic}</span>
           </p>
-          <p className="serif text-[26px] leading-snug sm:text-[30px]">{q.prompt}</p>
+          <p className="text-[22px] leading-snug font-medium tracking-[-0.02em] sm:text-[24px]">{q.prompt}</p>
           {follow[q.id] && (
             <p className="mt-4 border-l-2 border-thread pl-3 text-[14.5px] text-fg-2">
               <span className="font-medium text-fg">Follow-up:</span> {follow[q.id]}
@@ -134,7 +135,7 @@ export function Viva({ workspaceId, questions, ai }: { workspaceId: string; ques
         </div>
         {shown ? (
           <div className="anim-fade border-t border-line bg-bg px-6 py-5 sm:px-8">
-            <p className="eyebrow mb-2">From the record</p>
+            <p className="label-sm mb-2">From the record</p>
             <ul className="space-y-1.5 text-[14px] leading-relaxed">
               {q.answer.map((a, k) => (
                 <li key={k}>{a}</li>

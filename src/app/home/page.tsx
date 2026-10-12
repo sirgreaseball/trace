@@ -39,11 +39,10 @@ export default async function HomePage() {
       <main className="mx-auto max-w-[1180px] px-4 pt-6 pb-24 sm:px-8 sm:pt-10">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="eyebrow mb-2">{mentoring.length ? "Mentor view" : "Your workspaces"}</p>
-            <h1 className="text-[30px] leading-tight font-semibold sm:text-[40px]">
-              Hi, {firstName(profile.name)}.
-              {mentoring.length > 0 && <span className="serif font-normal text-fg-2"> {mentoring.length} teams, thirty seconds each.</span>}
-            </h1>
+            <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.03em] sm:text-[34px]">Hi, {firstName(profile.name)}</h1>
+            <p className="mt-1.5 text-fg-2">
+              {mentoring.length > 0 ? `You mentor ${mentoring.length} ${mentoring.length === 1 ? "team" : "teams"}. Teams with the most warnings come first.` : "Your workspaces"}
+            </p>
           </div>
           <CreateWorkspace />
         </div>
@@ -64,7 +63,7 @@ export default async function HomePage() {
                     <th className="py-3 pr-3 pl-5 font-medium">Team</th>
                     <th className="w-40 py-3 pr-4 font-medium">Traced</th>
                     <th className="w-48 py-3 pr-4 font-medium">Who&apos;s doing the work</th>
-                    <th className="py-3 pr-4 font-medium">Needs a look</th>
+                    <th className="py-3 pr-4 font-medium">Needs attention</th>
                     <th className="w-28 py-3 pr-5 text-right font-medium">Last activity</th>
                   </tr>
                 </thead>
@@ -89,7 +88,7 @@ export default async function HomePage() {
                           </Link>
                         </td>
                         <td className="py-4 pr-4">
-                          <span className="serif text-[28px] leading-none num">{h.coverage.pct}%</span>
+                          <span className="figure text-[26px]">{h.coverage.pct}%</span>
                           <div className="mt-2 h-1 overflow-hidden rounded-full bg-bg-3">
                             <div className="h-full rounded-full bg-thread" style={{ width: `${h.coverage.pct}%` }} />
                           </div>
@@ -103,7 +102,7 @@ export default async function HomePage() {
                             {h.team
                               .slice(0, 4)
                               .map((t) => `${firstName(memberName(v.members, t.user_id))} ${pct(t.weight)}`)
-                              .join(" · ")}
+                              .join(", ")}
                           </span>
                           <span className="mt-0.5 block text-[11px] text-fg-3">Balance {pct(h.balance)}</span>
                         </td>
@@ -112,7 +111,7 @@ export default async function HomePage() {
                             <ul className="space-y-1">
                               {h.flags.slice(0, 3).map((f) => (
                                 <li key={f.text} className="flex items-start gap-2 text-[12.5px] text-fg-2">
-                                  <span className={`mt-1.5 size-1.5 shrink-0 rounded-full ${f.level === "warn" ? "bg-warn" : "bg-fg-3"}`} />
+                                  <Icon name={f.level === "warn" ? "warn" : "info"} size={14} className={`mt-0.5 shrink-0 ${f.level === "warn" ? "text-warn" : "text-fg-3"}`} />
                                   {f.text}
                                 </li>
                               ))}
@@ -128,7 +127,6 @@ export default async function HomePage() {
                 </tbody>
               </table>
             </div>
-            <p className="mt-3 text-[12px] text-fg-3">Teams with the most warnings come first. Open a team for its loom, trace grid and receipts.</p>
           </section>
         )}
 
@@ -143,11 +141,11 @@ export default async function HomePage() {
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-semibold">{v.ws.name}</span>
                       <span className="block truncate text-[12.5px] text-fg-3">
-                        {role === "owner" ? "Team lead" : "Member"} · {v.members.length} people · {h.last ? `active ${ago(h.last, now)}` : "no activity yet"}
+                        {role === "owner" ? "Team lead" : "Member"}, {v.members.length} people, {h.last ? `active ${ago(h.last, now)}` : "no activity yet"}
                       </span>
                     </span>
                     <span className="text-right">
-                      <span className="serif block text-[30px] leading-none num">{h.coverage.pct}%</span>
+                      <span className="figure block text-[28px]">{h.coverage.pct}%</span>
                       <span className="text-[11px] text-fg-3">traced</span>
                     </span>
                   </Link>

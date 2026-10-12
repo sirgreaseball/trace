@@ -73,7 +73,7 @@ export function CommitList({
     <div className="space-y-6">
       {days.map((g) => (
         <section key={g.day}>
-          <h2 className="eyebrow mb-2">{g.day}</h2>
+          <h2 className="label-sm mb-2">{g.day}</h2>
           <ul className="panel divide-y divide-line">
             {g.items.map((c) => {
               const mine = links.filter((l) => l.commit_id === c.id);

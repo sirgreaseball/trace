@@ -84,7 +84,6 @@ export function Chat({
     <div className="flex h-[calc(100dvh-7rem)] flex-col sm:h-[calc(100dvh-8.5rem)]">
       <header className="flex items-end justify-between gap-3 pb-4">
         <div>
-          <p className="eyebrow mb-2">Team</p>
           <h1 className="text-[26px] font-semibold sm:text-[30px]">Chat</h1>
         </div>
         <p className="flex items-center gap-2 text-[12px] text-fg-3">

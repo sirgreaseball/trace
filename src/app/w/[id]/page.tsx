@@ -34,13 +34,13 @@ export default async function Overview(props: PageProps<"/w/[id]">) {
       ...t.commits.map((c) => ({
         t: Date.parse(c.committed_at),
         hue: profile.get(c.user_id ?? "")?.hue ?? 0,
-        label: `${c.sha.slice(0, 7)} · ${c.message.split("\n")[0]} — ${c.user_id ? memberName(v.members, c.user_id) : c.author_name}`,
+        label: `${c.message.split("\n")[0]} (${c.sha.slice(0, 7)}, ${c.user_id ? firstName(memberName(v.members, c.user_id)) : c.author_name})`,
         kind: "commit" as const,
       })),
       ...t.tasks
         .filter((k) => k.done_at)
-        .map((k) => ({ t: Date.parse(k.done_at!), hue: 0, label: `${ref(v.key, k.number)} done · ${k.title}`, kind: "task" as const })),
-      ...t.decisions.map((x) => ({ t: Date.parse(x.created_at), hue: 0, label: `D-${x.number} · ${x.title}`, kind: "decision" as const })),
+        .map((k) => ({ t: Date.parse(k.done_at!), hue: 0, label: `${ref(v.key, k.number)} done: ${k.title}`, kind: "task" as const })),
+      ...t.decisions.map((x) => ({ t: Date.parse(x.created_at), hue: 0, label: `D-${x.number}: ${x.title}`, kind: "decision" as const })),
     ],
   }));
 
@@ -72,7 +72,6 @@ export default async function Overview(props: PageProps<"/w/[id]">) {
   return (
     <>
       <PageHeader
-        eyebrow={v.ws.course || "Workspace"}
         title={v.ws.name}
         sub={
           v.ws.repo ? (
@@ -81,10 +80,10 @@ export default async function Overview(props: PageProps<"/w/[id]">) {
               <a className="link" href={`https://github.com/${v.ws.repo}`} target="_blank" rel="noreferrer">
                 {v.ws.repo}
               </a>
-              {v.syncedAt && <span className="text-fg-3"> · synced {ago(v.syncedAt, now)}</span>}
+              {v.syncedAt && <span className="text-fg-3">, synced {ago(v.syncedAt, now)}</span>}
             </span>
           ) : v.ws.demo ? (
-            "A fictional team, so the commits live here rather than on GitHub."
+            `${v.ws.course ? `${v.ws.course}. ` : ""}A fictional demo team: its commits live in Trace, not on GitHub.`
           ) : (
             <span>
               No repository yet.{" "}
@@ -99,63 +98,66 @@ export default async function Overview(props: PageProps<"/w/[id]">) {
         {v.ws.repo && v.me.role !== "mentor" && <SyncButton workspaceId={id} />}
       </PageHeader>
 
-      <section className="grid gap-px overflow-hidden rounded-2xl border border-line bg-line md:grid-cols-3">
-        <div className="bg-bg-2 p-5 sm:p-6">
-          <p className="eyebrow">Traced</p>
-          <p className="mt-3 flex items-baseline gap-2">
-            <span className="serif text-[64px] leading-[0.85] num">{h.coverage.pct}%</span>
-          </p>
-          <p className="mt-2 text-[13px] text-fg-2">
-            {h.coverage.traced} of {plural(h.coverage.total, "story", "stories")} done and backed by commits.
-          </p>
-          <div className="mt-4">
-            <ShareBar parts={seg} height={5} />
-            <div className="mt-2.5 flex flex-wrap gap-x-3 gap-y-1 text-[11.5px] text-fg-3">
-              {seg.map((s) => (
-                <span key={s.label} className="inline-flex items-center gap-1.5">
-                  <span className="size-1.5 rounded-full" style={{ background: s.color }} />
-                  {s.label} {s.value}
-                </span>
-              ))}
+      <section className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="grid gap-8 sm:grid-cols-2 sm:gap-0 sm:divide-x sm:divide-line">
+          <div className="sm:pr-8">
+            <p className="label-sm">Traced end to end</p>
+            <p className="figure mt-3 text-[60px]">{h.coverage.pct}%</p>
+            <p className="mt-2 text-[13px] text-fg-2">
+              {h.coverage.traced} of {plural(h.coverage.total, "story", "stories")} done and backed by commits.
+            </p>
+            <div className="mt-5">
+              <ShareBar parts={seg} height={4} />
+              <dl className="mt-3 grid grid-cols-4 gap-2 text-[11.5px]">
+                {seg.map((s) => (
+                  <div key={s.label}>
+                    <dt className="text-fg-3">{s.label}</dt>
+                    <dd className="num mt-0.5 font-medium">{s.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          </div>
+          <div className="sm:pl-8">
+            <p className="label-sm">Balance of work</p>
+            <p className="figure mt-3 text-[60px]">{pct(h.balance)}</p>
+            <p className="mt-2 text-[13px] text-fg-2">100% would mean everyone did an equal share.</p>
+            <div className="mt-5">
+              <ShareBar parts={h.team.map((t) => ({ label: memberName(v.members, t.user_id), value: t.weight, hue: profile.get(t.user_id)?.hue }))} height={4} />
+              <dl className="mt-3 grid grid-cols-4 gap-2 text-[11.5px]">
+                {h.team.slice(0, 4).map((t) => (
+                  <div key={t.user_id}>
+                    <dt className="truncate text-fg-3">
+                      <Link href={`${base}/receipts/${t.user_id}`} className="hover:text-fg">
+                        {firstName(memberName(v.members, t.user_id))}
+                      </Link>
+                    </dt>
+                    <dd className="num mt-0.5 font-medium">{pct(t.weight)}</dd>
+                  </div>
+                ))}
+              </dl>
             </div>
           </div>
         </div>
 
-        <div className="bg-bg-2 p-5 sm:p-6">
-          <p className="eyebrow">Balance</p>
-          <p className="mt-3 serif text-[64px] leading-[0.85] num">{pct(h.balance)}</p>
-          <p className="mt-2 text-[13px] text-fg-2">How evenly the work is spread. 100% means everyone did an equal share.</p>
-          <div className="mt-4">
-            <ShareBar parts={h.team.map((t) => ({ label: memberName(v.members, t.user_id), value: t.weight, hue: profile.get(t.user_id)?.hue }))} height={5} />
-            <div className="mt-2.5 flex flex-wrap gap-x-3 gap-y-1 text-[11.5px] text-fg-3">
-              {h.team.map((t) => (
-                <Link key={t.user_id} href={`${base}/receipts/${t.user_id}`} className="inline-flex items-center gap-1.5 hover:text-fg">
-                  <span className="size-1.5 rounded-full" style={{ background: `oklch(0.62 0.13 ${profile.get(t.user_id)?.hue ?? 0})` }} />
-                  {firstName(memberName(v.members, t.user_id))} {pct(t.weight)}
-                </Link>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-bg-2 p-5 sm:p-6">
-          <p className="eyebrow">Needs a look</p>
-          <ul className="mt-3 space-y-2 text-[13px]">
+        <div className="rounded-xl border border-line bg-bg-2 p-4">
+          <p className="label-sm px-1">Needs attention</p>
+          <ul className="mt-2 text-[13px]">
             {suggestions > 0 && (
               <li>
-                <Link href={`${base}/commits?show=suggested`} className="flex items-start gap-2 hover:text-fg">
-                  <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-thread" />
+                <Link href={`${base}/commits?show=suggested`} className="row-hover flex items-start gap-2.5 rounded-lg px-1 py-1.5">
+                  <Icon name="link" size={15} className="mt-px shrink-0 text-thread" />
                   <span>{plural(suggestions, "suggested link")} to confirm</span>
                 </Link>
               </li>
             )}
             {h.flags.map((f) => (
-              <li key={f.text} className="flex items-start gap-2 text-fg-2">
-                <span className={`mt-1.5 size-1.5 shrink-0 rounded-full ${f.level === "warn" ? "bg-warn" : "bg-fg-3"}`} />
+              <li key={f.text} className="flex items-start gap-2.5 px-1 py-1.5 text-fg-2">
+                <Icon name={f.level === "warn" ? "warn" : "info"} size={15} className={`mt-px shrink-0 ${f.level === "warn" ? "text-warn" : "text-fg-3"}`} />
                 <span>{f.text}</span>
               </li>
             ))}
-            {suggestions === 0 && h.flags.length === 0 && <li className="text-fg-2">Nothing. The thread is tidy.</li>}
+            {suggestions === 0 && h.flags.length === 0 && <li className="px-1 py-1.5 text-fg-2">Nothing right now.</li>}
           </ul>
         </div>
       </section>
@@ -176,7 +178,7 @@ export default async function Overview(props: PageProps<"/w/[id]">) {
             </span>
           }
         >
-          The loom · every story over time
+          Stories over time
         </SectionTitle>
         <div className="panel overflow-x-auto p-4 sm:p-5">
           {rows.length ? (
@@ -230,7 +232,7 @@ export default async function Overview(props: PageProps<"/w/[id]">) {
                         {m.role === "mentor"
                           ? "Mentor"
                           : t
-                            ? `${plural(t.commits, "commit")} · ${plural(t.tasks, "task")} · ${plural(t.decisions, "decision")}`
+                            ? `${plural(t.commits, "commit")}, ${plural(t.tasks, "task")}, ${plural(t.decisions, "decision")}`
                             : "No work yet"}
                       </span>
                     </span>

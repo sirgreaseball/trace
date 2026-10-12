@@ -45,9 +45,7 @@ export default async function TracePage(props: PageProps<"/w/[id]/trace">) {
   return (
     <>
       <PageHeader
-        eyebrow="Requirements traceability"
         title="Trace"
-        accent="grid"
         sub={`${cov.traced} of ${cov.total} stories traced end to end. Every row shows what stands behind a requirement.`}
       >
         <div className="flex rounded-lg border border-line-2 p-0.5" role="tablist" aria-label="View">
@@ -116,10 +114,10 @@ export default async function TracePage(props: PageProps<"/w/[id]/trace">) {
                           </span>
                         </span>
                       ) : (
-                        <span className="text-fg-3">—</span>
+                        <span className="text-fg-3">-</span>
                       )}
                     </td>
-                    <td className="py-2.5 pr-3 text-right num">{t.commits.length || <span className="text-fg-3">—</span>}</td>
+                    <td className="py-2.5 pr-3 text-right num">{t.commits.length || <span className="text-fg-3">-</span>}</td>
                     <td className="py-2.5 pr-3">
                       {t.decisions.length ? (
                         <span className="flex flex-wrap gap-1">
@@ -130,11 +128,11 @@ export default async function TracePage(props: PageProps<"/w/[id]/trace">) {
                           ))}
                         </span>
                       ) : (
-                        <span className="text-fg-3">—</span>
+                        <span className="text-fg-3">-</span>
                       )}
                     </td>
                     <td className="py-2.5 pr-4">
-                      {t.people.length ? <Avatars people={t.people.map((p) => profile.get(p)!).filter(Boolean)} /> : <span className="text-fg-3">—</span>}
+                      {t.people.length ? <Avatars people={t.people.map((p) => profile.get(p)!).filter(Boolean)} /> : <span className="text-fg-3">-</span>}
                     </td>
                   </>
                 ) : (
@@ -153,7 +151,7 @@ export default async function TracePage(props: PageProps<"/w/[id]/trace">) {
                             {n}
                           </span>
                         ) : (
-                          <span className="text-fg-3">·</span>
+                          <span className="sr-only">none</span>
                         )}
                       </td>
                     );

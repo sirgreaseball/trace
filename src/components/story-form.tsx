@@ -90,7 +90,7 @@ export function StoryForm({ workspaceId, story, trigger }: { workspaceId: string
           </fieldset>
           <div>
             <label className="label" htmlFor="acceptance">
-              Acceptance criteria <span className="font-normal text-fg-3">· one per line</span>
+              Acceptance criteria <span className="font-normal text-fg-3">(one per line)</span>
             </label>
             <textarea
               id="acceptance"

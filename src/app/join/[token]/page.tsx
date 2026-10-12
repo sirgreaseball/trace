@@ -30,12 +30,10 @@ export default async function JoinPage(props: PageProps<"/join/[token]">) {
           </>
         ) : (
           <>
-            <p className="eyebrow mb-3">You&apos;re invited</p>
-            <h1 className="text-[30px] leading-tight font-semibold">
-              Join <span className="serif font-normal">{info.workspace_name}</span>
-            </h1>
+            <p className="label-sm mb-3">You&apos;re invited</p>
+            <h1 className="text-[30px] leading-tight font-semibold tracking-[-0.03em]">Join {info.workspace_name}</h1>
             <p className="mt-2 text-fg-2">
-              {info.course ? `${info.course} · ` : ""}as {info.role === "mentor" ? "a mentor: you can read everything, comment and raise disputes." : "a team member."}
+              {info.course ? `${info.course}. ` : ""}You join as {info.role === "mentor" ? "a mentor: you can read everything, comment and raise disputes." : "a team member."}
             </p>
             <div className="mt-8">
               {user ? (

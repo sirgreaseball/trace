@@ -26,7 +26,7 @@ export default async function StoriesPage(props: PageProps<"/w/[id]/stories">) {
 
   return (
     <>
-      <PageHeader eyebrow="Requirements" title="Stories" sub="What the project must do, written from the user's side, each with acceptance criteria you can demo.">
+      <PageHeader title="Stories" sub="What the project must do, written from the user's side, each with acceptance criteria you can demo.">
         {v.me.role !== "mentor" && <StoryForm workspaceId={id} />}
       </PageHeader>
 

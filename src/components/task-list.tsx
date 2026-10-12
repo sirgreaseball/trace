@@ -53,7 +53,7 @@ export function TaskList({
                 className={`grid size-[18px] shrink-0 place-items-center rounded-full border transition-colors ${t.status === "done" ? "border-thread bg-thread text-white" : t.status === "doing" ? "border-thread" : "border-fg-3"}`}
                 aria-label={t.status === "done" ? `Reopen ${t.title}` : `Mark ${t.title} done`}
               >
-                {t.status === "done" && <Icon name="check" size={11} strokeWidth={3} />}
+                {t.status === "done" && <Icon name="check" size={11} bold />}
                 {t.status === "doing" && <span className="size-2 rounded-full bg-thread" />}
               </button>
               <span className="mono w-12 text-[11.5px] text-fg-3">

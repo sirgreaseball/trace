@@ -22,9 +22,7 @@ export default async function VivaPage(props: PageProps<"/w/[id]/viva">) {
   return (
     <>
       <PageHeader
-        eyebrow="Know the parts you didn't build"
         title="Viva"
-        accent="practice"
         sub={`Questions on the code, decisions and requirements ${self ? "you" : firstName(target.profile.name)} didn't work on, answered from the team's own record. Practice only: nothing here is graded or shown to anyone.`}
       >
         {builders.length > 1 && (
@@ -41,7 +39,7 @@ export default async function VivaPage(props: PageProps<"/w/[id]/viva">) {
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_260px]">
         <Viva key={target.user_id} workspaceId={id} questions={questions} ai={aiEnabled()} />
         <aside>
-          <p className="eyebrow mb-3">Who built what</p>
+          <p className="label-sm mb-3">Who built what</p>
           {mods.length ? (
             <ul className="space-y-2.5">
               {mods.map((m) => (

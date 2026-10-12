@@ -23,7 +23,7 @@ export default async function DecisionsPage(props: PageProps<"/w/[id]/decisions"
 
   return (
     <>
-      <PageHeader eyebrow="Why" title="Decisions" sub="The team's choices and the reasons behind them. Type /decide in chat to log one without leaving the conversation.">
+      <PageHeader title="Decisions" sub="The team's choices and the reasons behind them. Type /decide in chat to log one without leaving the conversation.">
         {canWrite && (
           <DecisionForm
             workspaceId={id}

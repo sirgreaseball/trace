@@ -30,7 +30,6 @@ export default async function CommitsPage(props: PageProps<"/w/[id]/commits">) {
   return (
     <>
       <PageHeader
-        eyebrow="Evidence"
         title="Commits"
         sub={
           <>

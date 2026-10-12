@@ -6,7 +6,7 @@ import { conflicts, ref } from "@/lib/trace";
 export async function generateMetadata(props: LayoutProps<"/w/[id]">): Promise<Metadata> {
   const { id } = await props.params;
   const v = await loadWorkspace(id);
-  return { title: { default: v.ws.name, template: `%s · ${v.ws.name}` } };
+  return { title: { default: v.ws.name, template: `%s | ${v.ws.name}` } };
 }
 
 export default async function WorkspaceLayout(props: LayoutProps<"/w/[id]">) {

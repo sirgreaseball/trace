@@ -101,7 +101,7 @@ export function Settings({
             <label className="label" htmlFor="ws-course">
               Course
             </label>
-            <input id="ws-course" name="course" maxLength={80} defaultValue={ws.course} disabled={!owner || ws.demo} className="field" placeholder="SE Lab · Sem V" />
+            <input id="ws-course" name="course" maxLength={80} defaultValue={ws.course} disabled={!owner || ws.demo} className="field" placeholder="SE Lab, Sem V" />
           </div>
           <div>
             <label className="label" htmlFor="ws-repo">

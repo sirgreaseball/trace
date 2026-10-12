@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Wordmark } from "@/components/brand";
 import { safeNext } from "@/lib/format";
 import { currentUser } from "@/lib/supabase/server";
+import { ThreadCanvas } from "@/components/splash/thread-canvas";
 import { EnterForm } from "./enter-form";
 
 export const metadata: Metadata = { title: "Enter" };
@@ -15,39 +16,21 @@ export default async function EnterPage(props: PageProps<"/enter">) {
 
   return (
     <main className="grid min-h-dvh lg:grid-cols-[1.1fr_1fr]">
-      <section className="relative hidden overflow-hidden bg-[#0b0b0c] text-[#ece9e2] lg:block">
-        <svg className="absolute inset-0 h-full w-full" viewBox="0 0 800 900" preserveAspectRatio="xMidYMid slice" aria-hidden>
-          {Array.from({ length: 34 }, (_, i) => {
-            const y = 120 + i * 20;
-            const k = (i % 7) - 3;
-            return (
-              <path
-                key={i}
-                d={`M-20 ${y} C 200 ${y - 60 + k * 18}, 380 ${y + 70 - k * 12}, 560 ${y + k * 6} S 760 ${y - 30}, 840 ${y + 10}`}
-                stroke="rgb(236 233 226 / 0.09)"
-                strokeWidth="1"
-                fill="none"
-              />
-            );
-          })}
-          <path
-            d="M-20 520 C 200 470, 340 610, 520 520 S 700 380, 840 430"
-            stroke="#ff5233"
-            strokeWidth="2.2"
-            fill="none"
-            strokeLinecap="round"
-            style={{ strokeDasharray: 1400, ["--len" as string]: 1400, animation: "draw 2.4s var(--ease) both" }}
-          />
-        </svg>
-        <div className="relative flex h-full flex-col justify-between p-12">
-          <Wordmark className="text-[#ece9e2]" />
-          <div className="max-w-md">
-            <p className="serif text-[56px] leading-[0.95]">Pick up the thread.</p>
-            <p className="mt-5 text-[15px] leading-relaxed text-[#a3a097]">
-              Every story, task, commit and decision in your project, tied to the people behind it. Know who did what, and why, before anyone has to ask.
+      <section className="relative hidden overflow-hidden bg-[#0b0b0c] text-[#ededeb] lg:block">
+        <ThreadCanvas formation={2} className="absolute inset-0 h-full w-full" />
+        <div className="pointer-events-none relative flex h-full flex-col justify-between p-12 [&_a]:pointer-events-auto">
+          <Wordmark className="text-[#ededeb]" />
+          <div className="max-w-md pb-[22vh]">
+            <p className="text-[52px] leading-[0.95] font-semibold tracking-[-0.045em]">
+              Every requirement,
+              <br />
+              <span className="text-[#ff5233]">traced.</span>
+            </p>
+            <p className="mt-6 text-[15px] leading-relaxed text-[#a1a1a4]">
+              Stories, tasks, commits and decisions, linked to the people who did the work.
             </p>
           </div>
-          <p className="text-xs text-[#6d6a63]">Built for student software teams and their mentors.</p>
+          <p className="text-xs text-[#6b6b70]">For student software teams and their mentors.</p>
         </div>
       </section>
 
@@ -57,7 +40,7 @@ export default async function EnterPage(props: PageProps<"/enter">) {
         </div>
         <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-10">
           <h1 className="text-[28px] font-semibold">Welcome to Trace</h1>
-          <p className="mt-1.5 text-fg-2">Sign in, or look around a live demo team first.</p>
+          <p className="mt-1.5 text-fg-2">Sign in, or try a demo team first.</p>
 
           <div className="mt-7 grid grid-cols-2 gap-2">
             <form action="/auth/demo" method="post">
@@ -69,7 +52,7 @@ export default async function EnterPage(props: PageProps<"/enter">) {
               <button className="btn h-10 w-full">Demo as a mentor</button>
             </form>
           </div>
-          <p className="mt-2 text-xs text-fg-3">Fictional teams. Anything you change resets every six hours.</p>
+          <p className="mt-2 text-xs text-fg-3">Fictional teams. Changes reset every six hours.</p>
 
           <div className="my-7 flex items-center gap-3 text-xs text-fg-3">
             <span className="rule flex-1" />

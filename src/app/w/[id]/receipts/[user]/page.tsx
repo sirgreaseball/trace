@@ -81,7 +81,7 @@ export default async function ReceiptPage(props: PageProps<"/w/[id]/receipts/[us
 
         <aside className="space-y-5 print:hidden">
           <div>
-            <p className="eyebrow mb-2">How to read this</p>
+            <p className="label-sm mb-2">How to read this</p>
             <ul className="space-y-2 text-[13.5px] leading-relaxed text-fg-2">
               <li>Each line is real evidence: a commit, a finished task, a decision or a story this person wrote. Click one to open it.</li>
               <li>Disagree with a line? Dispute it. Say what really happened; the team lead resolves it, and the receipt shows both.</li>

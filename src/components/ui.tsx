@@ -56,16 +56,12 @@ export function PriorityChip({ priority }: { priority: "must" | "should" | "coul
   return <span className={`chip ${priority === "must" ? "text-fg" : ""}`}>{priority === "must" ? "Must" : priority === "should" ? "Should" : "Could"}</span>;
 }
 
-export function PageHeader({ eyebrow, title, accent, children, sub }: { eyebrow?: string; title: string; accent?: string; children?: ReactNode; sub?: ReactNode }) {
+export function PageHeader({ title, children, sub }: { title: string; children?: ReactNode; sub?: ReactNode }) {
   return (
-    <header className="flex flex-wrap items-end justify-between gap-4 pb-6">
+    <header className="flex flex-wrap items-end justify-between gap-4 pb-7">
       <div className="min-w-0">
-        {eyebrow && <p className="eyebrow mb-2">{eyebrow}</p>}
-        <h1 className="text-[26px] leading-tight font-semibold sm:text-[30px]">
-          {title}
-          {accent && <span className="serif font-normal text-fg-2"> {accent}</span>}
-        </h1>
-        {sub && <div className="mt-1.5 max-w-2xl text-fg-2">{sub}</div>}
+        <h1 className="text-[24px] leading-tight font-semibold tracking-[-0.025em]">{title}</h1>
+        {sub && <div className="mt-1.5 max-w-[62ch] text-[14px] text-fg-2">{sub}</div>}
       </div>
       {children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
     </header>

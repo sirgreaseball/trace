@@ -1,25 +1,19 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/toast";
 import "./globals.css";
 
 const geist = Geist({ variable: "--font-geist", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
-const instrument = Instrument_Serif({
-  variable: "--font-instrument",
-  subsets: ["latin"],
-  weight: "400",
-  style: ["normal", "italic"],
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
-  title: { default: "Trace — every requirement, traced", template: "%s · Trace" },
+  title: { default: "Trace: every requirement, traced", template: "%s | Trace" },
   description:
     "The workspace for student software teams. Stories, tasks, commits, decisions and the people behind them, tied into one thread.",
   applicationName: "Trace",
   openGraph: {
-    title: "Trace — every requirement, traced",
+    title: "Trace: every requirement, traced",
     description: "Who did what, why it was decided, and what's left. For student software teams and their mentors.",
     type: "website",
   },
@@ -38,7 +32,7 @@ const themeScript = `try{var t=localStorage.getItem("trace-theme");if(t==="light
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${geist.variable} ${geistMono.variable} ${instrument.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${geist.variable} ${geistMono.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>

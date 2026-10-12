@@ -19,7 +19,7 @@ export function SyncButton({ workspaceId, className = "" }: { workspaceId: strin
         body.linked ? `${body.linked} linked` : "",
         body.suggested ? `${body.suggested} suggested` : "",
       ].filter(Boolean);
-      toast(parts.join(" · "));
+      toast(parts.join(", "));
       router.refresh();
     } catch {
       toast("Couldn't reach the server.", "error");

@@ -79,13 +79,13 @@ export function CreateWorkspace() {
           </p>
           <div>
             <label className="label" htmlFor="nw-course">
-              Course <span className="font-normal text-fg-3">· optional</span>
+              Course <span className="font-normal text-fg-3">(optional)</span>
             </label>
-            <input id="nw-course" name="course" maxLength={80} className="field" placeholder="SE Lab · Sem V" />
+            <input id="nw-course" name="course" maxLength={80} className="field" placeholder="SE Lab, Sem V" />
           </div>
           <div>
             <label className="label" htmlFor="nw-repo">
-              GitHub repository <span className="font-normal text-fg-3">· optional, public</span>
+              Public GitHub repository <span className="font-normal text-fg-3">(optional)</span>
             </label>
             <input id="nw-repo" name="repo" className="field mono" placeholder="owner/repo" />
           </div>

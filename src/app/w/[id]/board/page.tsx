@@ -9,7 +9,7 @@ export default async function BoardPage(props: PageProps<"/w/[id]/board">) {
   const v = await loadWorkspace(id);
   return (
     <>
-      <PageHeader eyebrow="Work" title="Board" sub="Drag tasks across, or use the menu on each card. Finishing a task counts on its owner's receipt." />
+      <PageHeader title="Board" sub="Drag tasks across, or use the menu on each card. Finishing a task counts on its owner's receipt." />
       <Board
         workspaceId={id}
         keyPrefix={v.key}

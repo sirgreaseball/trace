@@ -16,9 +16,7 @@ export default async function AskPage(props: PageProps<"/w/[id]/ask">) {
   return (
     <>
       <PageHeader
-        eyebrow="Why did we…"
         title="Ask"
-        accent="the record"
         sub="Answers come only from your team's stories, decisions, chat and commits, and every claim points at its source."
       />
       <Ask workspaceId={id} suggestions={suggestions.slice(0, 4)} ai={aiEnabled()} />
