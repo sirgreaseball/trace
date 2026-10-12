@@ -2,5 +2,7 @@
 /scripts
 /supabase
 /PROGRESS.md
+/graphify-out
+/tsconfig.tsbuildinfo
 /.env*
 !/.env.example
