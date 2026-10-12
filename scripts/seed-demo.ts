@@ -4,8 +4,8 @@
 // Run: node scripts/seed-demo.ts
 import { createHash } from "node:crypto";
 import { writeFileSync } from "node:fs";
-import { linkCommits } from "../src/lib/trace.ts";
-import type { Commit, Link, Story, Task } from "../src/lib/types.ts";
+import { health, linkCommits } from "../src/lib/trace.ts";
+import type { Commit, Decision, Dispute, Link, Member, Story, Task } from "../src/lib/types.ts";
 
 const uuid = (seed: string) => {
   const h = createHash("sha1").update(`trace-demo:${seed}`).digest("hex");
@@ -100,7 +100,7 @@ const C = (msg: string, who: string, files: string[], add: number, del: number, 
 const lostAndFound: Team = {
   key: "LF",
   name: "Campus Lost & Found",
-  course: "SE Lab · Sem V · Batch A1",
+  course: "SE Lab, Sem V",
   owner: "aarav",
   members: ["isha", "kabir", "meera"],
   stories: [
@@ -225,7 +225,10 @@ const lostAndFound: Team = {
           title: "Category and date filters",
           status: "doing",
           who: "isha",
-          commits: [C("{T}: category filter chips", "isha", ["src/search/Filters.tsx"], 90, 0, 6)],
+          commits: [
+            C("{T}: category filter chips", "isha", ["src/search/Filters.tsx"], 90, 0, 1.4),
+            C("{T}: date range filter", "isha", ["src/search/Filters.tsx", "src/search/dates.ts"], 74, 12, 0.25),
+          ],
         },
       ],
     },
@@ -273,8 +276,8 @@ const lostAndFound: Team = {
           status: "doing",
           who: "meera",
           commits: [
-            C("{T}: claim dialog", "meera", ["src/items/ClaimDialog.tsx"], 140, 0, 9),
-            C("limit wrong answers on claim dialog", "meera", ["src/items/claim.ts"], 38, 5, 7),
+            C("{T}: claim dialog", "meera", ["src/items/ClaimDialog.tsx"], 140, 0, 3.2),
+            C("limit wrong answers on claim dialog", "meera", ["src/items/claim.ts"], 38, 5, 2.1),
           ],
         },
       ],
@@ -364,7 +367,7 @@ const lostAndFound: Team = {
     { who: "aarav", day: 12.3, body: "push needs a service worker + FCM setup, that's a lot before the demo" },
     { who: "kabir", day: 12.25, body: "hmm ok let me check" },
     { who: "aarav", day: 9.2, body: "going with email alerts for v1, logged it as a decision" },
-    { who: "meera", day: 7.3, body: "claim dialog done, adding the wrong-answer limit now" },
+    { who: "meera", day: 3.1, body: "claim dialog done, adding the wrong-answer limit now" },
     { who: "isha", day: 5.2, body: "@Kabir any update on push? that task is still in todo" },
     { who: "kabir", day: 4.4, body: "sorry, CN assignment week. will pick it up this weekend" },
     { who: "aarav", day: 2.1, body: "Mentor review on Friday. Let's finish the filters and close the claim flow before that" },
@@ -460,6 +463,7 @@ type Short = {
   weights: Record<string, number>;
   orphanRate: number;
   idle: number; // days since the last activity
+  balanced?: boolean; // hand tasks out in turn instead of by weight
   stories: { title: string; narrative: string; acceptance: string[]; priority: Story["priority"]; module: string; tasks: [string, Task["status"]][] }[];
   decisions: DecisionSpec[];
   messages: MessageSpec[];
@@ -527,9 +531,10 @@ const shortTeams: Short[] = [
     name: "Campus Carpool",
     owner: "neha",
     members: ["arjun", "zoya", "siddharth"],
-    weights: { neha: 0.27, arjun: 0.25, zoya: 0.25, siddharth: 0.23 },
+    weights: { neha: 0.25, arjun: 0.25, zoya: 0.25, siddharth: 0.25 },
     orphanRate: 0.08,
     idle: 0,
+    balanced: true,
     stories: [
       { title: "Offer a ride", narrative: "As a student with a car, I want to offer seats on my drive to campus, so that I can split fuel.", acceptance: ["Given I offer 3 seats from Kothur at 8 am, when others search, then my ride shows with 3 seats."], priority: "must", module: "rides", tasks: [["Offer ride form", "done"], ["Seat count updates", "done"]] },
       { title: "Find a ride", narrative: "As a student, I want to find rides from my area, so that I don't take two buses.", acceptance: ["Given rides from my area tomorrow, when I search, then I see them sorted by time."], priority: "must", module: "search", tasks: [["Ride search by area and time", "done"], ["Map preview of the route", "done"]] },
@@ -597,6 +602,7 @@ function expand(s: Short): Team {
     return s.owner;
   };
   const verbs = ["", "tests for ", "polish ", "fix edge cases in "];
+  let turn = 0;
   const span = 28 - s.idle;
   const stories: StorySpec[] = s.stories.map((st, i) => ({
     title: st.title,
@@ -606,14 +612,14 @@ function expand(s: Short): Team {
     by: i % 2 ? s.members[i % s.members.length] : s.owner,
     day: 31 - i * 0.4,
     tasks: st.tasks.map(([title, status]) => {
-      const who = pick();
+      const who = s.balanced ? all[turn++ % all.length] : pick();
       const n = status === "todo" ? 0 : 1 + Math.floor(r() * 3);
       return {
         title,
         status,
         who,
         commits: Array.from({ length: n }, (_, k) => {
-          const author = r() < 0.75 ? who : pick();
+          const author = s.balanced || r() < 0.75 ? who : pick();
           const text = `${verbs[k % verbs.length]}${title.toLowerCase()}`;
           const named = r() >= s.orphanRate;
           return C(
@@ -631,7 +637,7 @@ function expand(s: Short): Team {
   const extra = Array.from({ length: Math.round(3 + s.orphanRate * 8) }, (_, i) =>
     C(["wip", "fix build", "update readme", "cleanup", "lint fixes", "rename files", "fix typo"][i % 7], pick(), [i % 2 ? "README.md" : "package.json"], 3 + Math.floor(r() * 20), Math.floor(r() * 5), s.idle + 0.1 + r() * span),
   );
-  return { key: s.key, name: s.name, course: "SE Lab · Sem V · Batch A1", owner: s.owner, members: s.members, stories, extra, decisions: s.decisions, messages: s.messages, disputes: s.disputes };
+  return { key: s.key, name: s.name, course: "SE Lab, Sem V", owner: s.owner, members: s.members, stories, extra, decisions: s.decisions, messages: s.messages, disputes: s.disputes };
 }
 
 const teams = [lostAndFound, ...shortTeams.map(expand)];
@@ -639,13 +645,14 @@ const teams = [lostAndFound, ...shortTeams.map(expand)];
 // --- SQL ------------------------------------------------------------------------
 
 const out: string[] = [];
+const stats: string[] = [];
 const emit = (s: string) => out.push(s);
 
 emit(`-- Generated by scripts/seed-demo.ts. Do not edit by hand.
 -- Fictional demo people and teams. Demo logins get their passwords from a
 -- separate, uncommitted step; everyone else has a random, unknown password.
 
-create function public.ensure_demo_user(p_id uuid, p_email text, p_name text) returns void
+create or replace function public.ensure_demo_user(p_id uuid, p_email text, p_name text) returns void
 language plpgsql security definer set search_path = '' as $$
 begin
   insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -754,10 +761,46 @@ for (const t of teams) {
     B(`  insert into public.disputes (id, workspace_id, kind, item_id, subject, raised_by, note, status, resolution, created_at, resolved_at) values (${q(uuid(`dispute:${t.key}:${i}`))}, ${q(ws)}, ${q(x.on)}, ${q(item.id)}, ${q(uid(x.subject))}, ${q(uid(x.by))}, ${q(x.note)}, ${x.resolution ? "'resolved'" : "'open'"}, ${q(x.resolution ?? null)}, ${ago(x.day * DAY)}, ${x.resolution ? ago(x.day * DAY - 300) : "null"});`);
   }
   B(`  insert into public.sync_state (workspace_id, synced_at) values (${q(ws)}, ${ago(30)});`);
+
+  // What the splash page and README quote about the demo: computed, not invented.
+  const iso = (minutesAgo: number) => new Date(Date.now() - minutesAgo * 60_000).toISOString();
+  const members: Member[] = [t.owner, ...t.members].map((k) => ({
+    user_id: uid(k),
+    role: k === t.owner ? "owner" : "member",
+    joined_at: iso(34 * DAY),
+    profile: { id: uid(k), name: person.get(k)!.name, github: person.get(k)!.github, hue: person.get(k)!.hue },
+  }));
+  const decisions: Decision[] = t.decisions.map((x, i) => ({
+    id: decIds[i], number: i + 1, title: x.title, rationale: x.rationale, alternatives: x.alternatives,
+    story_id: x.story === undefined ? null : storyIds[x.story], message_id: null,
+    supersedes: x.supersedes === undefined ? null : decIds[x.supersedes], decided_by: uid(x.by), created_at: iso(x.day * DAY),
+  }));
+  const disputes: Dispute[] = t.disputes.map((x, i) => ({
+    id: String(i), kind: x.on, item_id: "", subject: uid(x.subject), raised_by: uid(x.by), note: x.note,
+    status: x.resolution ? "resolved" : "open", resolution: x.resolution ?? null, created_at: iso(x.day * DAY), resolved_at: null,
+  }));
+  const h = health(
+    {
+      key: t.key,
+      members,
+      stories: stories.map((st) => ({ ...st, created_at: iso(Number(st.created_at) * DAY) })),
+      tasks: tasks.map((k) => ({ ...k, created_at: iso(Number(k.created_at) * DAY), done_at: doneAge.has(k.id) ? iso(doneAge.get(k.id)!) : null })),
+      commits: commits.map((c) => ({ ...c, committed_at: iso(commitAge.get(c.id)!) })),
+      links,
+      decisions,
+      disputes,
+    },
+    Date.now(),
+  );
+  stats.push(
+    `${t.key} ${t.name}: traced ${h.coverage.pct}% (${h.coverage.traced}/${h.coverage.total}), balance ${Math.round(h.balance * 100)}%, ` +
+      h.team.map((m) => `${members.find((x) => x.user_id === m.user_id)!.profile.name.split(" ")[0]} ${Math.round(m.weight * 100)}%`).join(", ") +
+      ` | ${h.flags.map((f) => f.text).join("; ") || "no flags"}`,
+  );
 }
 
 emit(`
-create function public.reset_demo() returns void
+create or replace function public.reset_demo() returns void
 language plpgsql security definer set search_path = '' as $$
 begin
 ${body.join("\n")}
@@ -769,3 +812,4 @@ select public.reset_demo();
 
 writeFileSync(new URL("../supabase/migrations/0002_demo.sql", import.meta.url), out.join("\n") + "\n");
 console.log(`wrote 0002_demo.sql: ${teams.length} teams, ${people.length} people`);
+console.log(stats.join(String.fromCharCode(10)));
