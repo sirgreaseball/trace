@@ -67,7 +67,7 @@ export function ReceiptLines({
             <span className="mono shrink-0 text-right text-[11px] whitespace-nowrap">{l.detail}</span>
           </div>
           {l.disputes.map((d) => (
-            <div key={d.id} className={`mono mt-1.5 border-l-2 pl-2 text-[11px] leading-snug ${d.status === "open" ? "border-[#c2410c]" : "border-current opacity-60"}`}>
+            <div key={d.id} className={`mono mt-1.5 border-l-2 pl-2 text-[11px] leading-snug ${d.status === "open" ? "border-warn" : "border-current opacity-60"}`}>
               <span className="font-semibold">{d.status === "open" ? "DISPUTED" : "RESOLVED"}</span> by {raisers[d.raised_by ?? ""] ?? "someone"}: {d.note}
               {d.resolution && <span className="block">→ {d.resolution}</span>}
               {d.status === "open" && (canResolve || d.raised_by === me) && resolving !== d.id && (

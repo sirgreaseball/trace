@@ -230,7 +230,7 @@ function ModKey() {
 }
 
 // Theme lives on <html data-theme>; this store lets every toggle follow it.
-function subscribeTheme(cb: () => void) {
+export function subscribeTheme(cb: () => void) {
   const mq = matchMedia("(prefers-color-scheme: dark)");
   mq.addEventListener("change", cb);
   window.addEventListener("trace-theme", cb);
@@ -239,7 +239,7 @@ function subscribeTheme(cb: () => void) {
     window.removeEventListener("trace-theme", cb);
   };
 }
-const isDark = () => {
+export const isDark = () => {
   const t = document.documentElement.dataset.theme;
   return t ? t === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
 };
