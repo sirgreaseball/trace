@@ -6,7 +6,7 @@
 
 **Every requirement, traced.** Trace is a workspace for student software teams. It links each story to the tasks, commits and decisions behind it, and to the people who did the work, so a team (and its mentor) can always answer three questions: *who built this, why was it done this way, and what is left?*
 
-**Live:** [trytrace.vercel.app](https://trytrace.vercel.app). Press **Try the demo** to look around a fictional team, or **See the mentor demo** for the view across five teams.
+**Live:** [trytrace-app.vercel.app](https://trytrace-app.vercel.app). Press **Try the demo** to look around a fictional team, or **See the mentor demo** for the view across five teams.
 
 ## What it does
 
