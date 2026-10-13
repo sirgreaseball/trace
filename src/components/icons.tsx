@@ -3,12 +3,20 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowSquareOut,
+  ArrowUpRight,
   ArrowsClockwise,
   BookOpenText,
+  CaretDown,
+  CaretRight,
   CaretUpDown,
-  ChatCircle,
+  ChartDonut,
+  ChatsCircle,
   Check,
+  CheckCircle,
+  ClockCounterClockwise,
   Copy,
+  Desktop,
+  DotsThree,
   DownloadSimple,
   GearSix,
   GitCommit,
@@ -21,46 +29,53 @@ import {
   MagnifyingGlass,
   Moon,
   PaperPlaneRight,
+  Path,
+  Pause,
+  Play,
   Plus,
   Printer,
   Question,
-  Receipt,
   Scales,
   SignOut,
   SquaresFour,
   Sun,
-  Table,
   Users,
+  Wallet,
   Warning,
   X,
 } from "@phosphor-icons/react/ssr";
-import type { Icon as PhosphorIcon } from "@phosphor-icons/react/lib";
+import type { Icon as PhosphorIcon, IconWeight } from "@phosphor-icons/react/lib";
 
 const map = {
-  overview: SquaresFour,
-  trace: Table,
+  today: ChartDonut,
+  trace: Path,
   stories: BookOpenText,
   board: Kanban,
   commits: GitCommit,
   decisions: Scales,
-  chat: ChatCircle,
+  chat: ChatsCircle,
   ask: Question,
-  receipts: Receipt,
+  receipts: Wallet,
   viva: GraduationCap,
   settings: GearSix,
   home: House,
+  workspaces: SquaresFour,
   search: MagnifyingGlass,
   plus: Plus,
   check: Check,
+  checkCircle: CheckCircle,
   x: X,
   sync: ArrowsClockwise,
   link: Link,
   arrow: ArrowRight,
+  arrowUp: ArrowUpRight,
   back: ArrowLeft,
   sun: Sun,
   moon: Moon,
+  system: Desktop,
   logout: SignOut,
   menu: List,
+  more: DotsThree,
   external: ArrowSquareOut,
   print: Printer,
   copy: Copy,
@@ -70,11 +85,28 @@ const map = {
   warn: Warning,
   info: Info,
   updown: CaretUpDown,
+  down: CaretDown,
+  right: CaretRight,
+  rewind: ClockCounterClockwise,
+  play: Play,
+  pause: Pause,
 } satisfies Record<string, PhosphorIcon>;
 
 export type IconName = keyof typeof map;
 
-export function Icon({ name, size = 16, className, bold = false }: { name: IconName; size?: number; className?: string; bold?: boolean }) {
+export function Icon({
+  name,
+  size = 16,
+  className,
+  weight = "regular",
+  bold = false,
+}: {
+  name: IconName;
+  size?: number;
+  className?: string;
+  weight?: IconWeight;
+  bold?: boolean;
+}) {
   const C = map[name];
-  return <C size={size} weight={bold ? "bold" : "regular"} className={className} aria-hidden />;
+  return <C size={size} weight={bold ? "bold" : weight} className={className} aria-hidden />;
 }

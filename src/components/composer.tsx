@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Icon } from "./icons";
-import { toast } from "./toast";
+import { toast } from "./island";
 import { humanize } from "./use-run";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import type { Story } from "@/lib/types";
@@ -61,7 +61,7 @@ export function Composer({
     onSent?.();
   }
   return (
-    <div className="flex items-end gap-2 rounded-xl border border-line-2 bg-bg-2 p-1.5 focus-within:border-thread focus-within:shadow-[0_0_0_3px_var(--thread-soft)]">
+    <div className="flex items-end gap-2 rounded-[24px] bg-surface p-1.5 pl-2 shadow-[var(--shadow-sm),0_0_0_1px_var(--line-2)] transition-shadow duration-300 focus-within:shadow-[0_0_0_1px_var(--accent),0_0_0_5px_var(--accent-soft)]">
       <textarea
         value={body}
         onChange={(e) => setBody(e.target.value)}
@@ -75,10 +75,15 @@ export function Composer({
         maxLength={4000}
         placeholder={placeholder}
         aria-label="Message"
-        className="max-h-40 min-h-9 flex-1 resize-none bg-transparent px-2 py-1.5 outline-none placeholder:text-fg-3 [field-sizing:content]"
+        className="max-h-40 min-h-9 flex-1 resize-none bg-transparent px-2 py-[7px] text-[15px] outline-none placeholder:text-ink-3 [field-sizing:content]"
       />
-      <button onClick={send} disabled={busy || !body.trim()} className="btn btn-thread btn-icon h-9 w-9" aria-label="Send">
-        <Icon name="send" size={15} />
+      <button
+        onClick={send}
+        disabled={busy || !body.trim()}
+        className="press grid size-9 shrink-0 place-items-center rounded-full bg-ink text-inv transition-[opacity,transform] duration-200 disabled:scale-90 disabled:opacity-25"
+        aria-label="Send"
+      >
+        <Icon name="send" size={16} weight="fill" />
       </button>
     </div>
   );

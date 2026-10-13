@@ -2,7 +2,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  asOf,
   balance,
+  moments,
   buildReceipt,
   buildViva,
   conflicts,
@@ -88,6 +90,21 @@ test("story states and coverage", () => {
   assert.equal(traces[0].state, "traced");
   assert.equal(traces[1].state, "building");
   assert.deepEqual(coverage(traces), { total: 2, traced: 1, building: 1, planned: 0, untraced: 0, pct: 50 });
+});
+
+test("rewind shows the record as it stood, and today matches the live record", () => {
+  const d = fixture();
+  const links = linkCommits(d).filter((l) => l.status === "confirmed").map((l, i) => ({ id: String(i), ...l }));
+  const live = { ...d, links };
+  const early = asOf(live, Date.parse(at(4)));
+  assert.equal(early.commits.length, 0);
+  assert.equal(early.links.length, 0);
+  assert.ok(early.tasks.every((t) => t.status !== "done"));
+  assert.equal(coverage(traceStories(early)).traced, 0);
+  assert.equal(asOf(live, Date.parse(at(0))).stories.length, 0);
+  assert.deepEqual(coverage(traceStories(asOf(live, Date.parse(at(30))))), coverage(traceStories(live)));
+  const ticks = moments(live);
+  assert.ok(ticks.every((m, i) => i === 0 || ticks[i - 1].t <= m.t));
 });
 
 test("contribution weights sum to one and mentors are left out", () => {

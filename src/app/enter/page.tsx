@@ -1,12 +1,23 @@
 import type { Metadata } from "next";
+import type { CSSProperties } from "react";
 import { redirect } from "next/navigation";
 import { Wordmark } from "@/components/brand";
+import { TeamLight } from "@/components/light";
+import { Rings } from "@/components/rings";
+import { ThemeToggle } from "@/components/theme";
 import { safeNext } from "@/lib/format";
 import { currentUser } from "@/lib/supabase/server";
-import { RopeCanvas } from "@/components/splash/rope-canvas";
 import { EnterForm } from "./enter-form";
 
-export const metadata: Metadata = { title: "Enter" };
+export const metadata: Metadata = { title: "Sign in" };
+
+// A made-up team's colours, for the light behind the sign-in.
+const LIGHT = [
+  { hue: 24, weight: 0.32 },
+  { hue: 210, weight: 0.24 },
+  { hue: 150, weight: 0.24 },
+  { hue: 320, weight: 0.2 },
+];
 
 export default async function EnterPage(props: PageProps<"/enter">) {
   const sp = await props.searchParams;
@@ -15,58 +26,59 @@ export default async function EnterPage(props: PageProps<"/enter">) {
   const error = typeof sp.error === "string" ? sp.error : null;
 
   return (
-    <main className="grid min-h-dvh lg:grid-cols-[1.1fr_1fr]">
-      <section className="relative hidden overflow-hidden border-r border-line bg-bg-2 lg:block">
-        <RopeCanvas className="absolute inset-0" />
-        <div className="pointer-events-none relative flex h-full flex-col justify-between p-12 [&_a]:pointer-events-auto">
-          <Wordmark />
-          <div className="max-w-md">
-            <p className="eyebrow mb-5">For student software teams and their mentors</p>
-            <p className="display text-[clamp(48px,5vw,76px)]">
-              Every requirement,
-              <br />
-              <em>traced.</em>
-            </p>
-            <p className="mt-6 max-w-sm text-[15px] leading-relaxed text-fg-2">
-              Stories, tasks, commits and decisions, linked to the people who did the work.
-            </p>
-          </div>
+    <main className="relative grid min-h-dvh overflow-hidden lg:grid-cols-[1.15fr_1fr]">
+      <TeamLight sources={LIGHT} className="absolute inset-0 opacity-90 lg:right-[42%]" />
+      <section className="relative hidden flex-col justify-between p-12 lg:flex">
+        <Wordmark />
+        <div className="max-w-xl">
+          <Rings values={[0.82, 0.64, 0.9]} size={150} glow delay={500} className="rise mb-12" />
+          <h1 className="t-display rise text-[clamp(56px,6vw,92px)]" style={{ "--i": 2 } as CSSProperties}>
+            Every requirement, traced.
+          </h1>
+          <p className="rise mt-6 max-w-md text-[17px] leading-relaxed text-ink-2" style={{ "--i": 3 } as CSSProperties}>
+            Stories, tasks, commits and decisions, tied to the people who did the work. For student software teams and their mentors.
+          </p>
         </div>
+        <p className="t-caption">© 2026 Dhruv Sonar. All rights reserved.</p>
       </section>
 
-      <section className="flex flex-col px-5 py-8 sm:px-10">
-        <div className="lg:hidden">
-          <Wordmark />
+      <section className="relative flex flex-col px-5 py-6 sm:px-10">
+        <div className="flex items-center justify-between">
+          <span className="lg:invisible">
+            <Wordmark />
+          </span>
+          <ThemeToggle />
         </div>
-        <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-10">
-          <p className="eyebrow">Sign in</p>
-          <h1 className="display mt-3 text-[48px]">Welcome to <em>Trace</em></h1>
-          <p className="mt-3 text-fg-2">Sign in, or try a demo team first.</p>
+        <div className="mx-auto flex w-full max-w-[400px] flex-1 flex-col justify-center py-10">
+          <div className="glass-strong rise rounded-[32px] p-6 sm:p-8" style={{ "--i": 1 } as CSSProperties}>
+            <h2 className="text-[28px] font-[650] tracking-[-0.035em]">Sign in to Trace</h2>
+            <p className="mt-1.5 text-[15px] text-ink-2">Or look around a demo team first. Nothing to set up.</p>
 
-          <div className="mt-7 grid grid-cols-2 gap-2">
-            <form action="/auth/demo" method="post">
-              <input type="hidden" name="as" value="student" />
-              <button className="btn btn-thread h-10 w-full">Demo as a student</button>
-            </form>
-            <form action="/auth/demo" method="post">
-              <input type="hidden" name="as" value="mentor" />
-              <button className="btn h-10 w-full">Demo as a mentor</button>
-            </form>
+            <div className="mt-6 grid gap-2">
+              <form action="/auth/demo" method="post">
+                <input type="hidden" name="as" value="student" />
+                <button className="btn btn-accent btn-lg w-full">Try the demo as a student</button>
+              </form>
+              <form action="/auth/demo" method="post">
+                <input type="hidden" name="as" value="mentor" />
+                <button className="btn btn-lg w-full">See the mentor view</button>
+              </form>
+            </div>
+            <p className="t-caption mt-2.5 text-center">Fictional teams. Changes reset every six hours.</p>
+
+            <div className="my-6 flex items-center gap-3 text-[12.5px] text-ink-3">
+              <span className="h-px flex-1 bg-line-2" />
+              or with your account
+              <span className="h-px flex-1 bg-line-2" />
+            </div>
+
+            {error && (
+              <p role="alert" className="mb-4 rounded-[12px] bg-danger-soft px-3.5 py-2.5 text-[13.5px] text-danger">
+                {error}
+              </p>
+            )}
+            <EnterForm next={next} github={process.env.NEXT_PUBLIC_GITHUB_AUTH === "1"} />
           </div>
-          <p className="mt-2 text-xs text-fg-3">Fictional teams. Changes reset every six hours.</p>
-
-          <div className="my-7 flex items-center gap-3 text-xs text-fg-3">
-            <span className="rule flex-1" />
-            or use your account
-            <span className="rule flex-1" />
-          </div>
-
-          {error && (
-            <p role="alert" className="mb-4 rounded-lg bg-warn-soft px-3 py-2 text-[13px] text-warn">
-              {error}
-            </p>
-          )}
-          <EnterForm next={next} github={process.env.NEXT_PUBLIC_GITHUB_AUTH === "1"} />
         </div>
       </section>
     </main>

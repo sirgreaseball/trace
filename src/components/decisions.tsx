@@ -97,8 +97,8 @@ export function ConflictActions({ workspaceId, earlier, later }: { workspaceId: 
   const { run, busy } = useRun();
   const sb = supabaseBrowser();
   return (
-    <span className="ml-auto flex gap-1.5">
-      <button disabled={busy} className="btn btn-sm" onClick={() => run(() => sb.from("decisions").update({ supersedes: earlier.id }).eq("id", later.id), `D-${later.number} now replaces D-${earlier.number}`)}>
+    <span className="flex flex-wrap gap-1.5">
+      <button disabled={busy} className="btn btn-primary btn-sm" onClick={() => run(() => sb.from("decisions").update({ supersedes: earlier.id }).eq("id", later.id), `D-${later.number} now replaces D-${earlier.number}`)}>
         D-{later.number} replaces D-{earlier.number}
       </button>
       <button

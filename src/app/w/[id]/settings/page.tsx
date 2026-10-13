@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 import { Settings } from "@/components/settings";
-import { PageHeader } from "@/components/ui";
+import { PageTitle } from "@/components/ui";
 import { requestTime } from "@/lib/format";
 import { loadWorkspace, myProfile } from "@/lib/data";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -18,7 +18,7 @@ export default async function SettingsPage(props: PageProps<"/w/[id]/settings">)
   ]);
   return (
     <>
-      <PageHeader title="Settings" />
+      <PageTitle title="Settings" sub={`${v.ws.name}${v.ws.course ? `, ${v.ws.course}` : ""}. Everyone on the team can see these.`} />
       <Settings
         ws={{ id: v.ws.id, name: v.ws.name, key: v.ws.key, course: v.ws.course, repo: v.ws.repo, demo: v.ws.demo }}
         me={{ id: v.me.id, role: v.me.role }}

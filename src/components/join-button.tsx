@@ -13,7 +13,7 @@ export function JoinButton({ token }: { token: string }) {
     <>
       <button
         disabled={busy}
-        className="btn btn-thread h-10 w-full"
+        className="btn btn-primary btn-lg w-full"
         onClick={async () => {
           setBusy(true);
           const { data, error } = await supabaseBrowser().rpc("accept_invite", { p_token: token });
@@ -27,7 +27,7 @@ export function JoinButton({ token }: { token: string }) {
         {busy ? "Joining…" : "Join the team"}
       </button>
       {error && (
-        <p role="alert" className="mt-3 text-[13px] text-warn">
+        <p role="alert" className="mt-3 text-[13px] text-danger">
           {error}
         </p>
       )}

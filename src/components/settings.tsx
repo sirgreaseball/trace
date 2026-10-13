@@ -3,21 +3,20 @@
 import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { Icon } from "./icons";
-import { toast } from "./toast";
+import { toast } from "./island";
 import { Avatar } from "./ui";
 import { useRun } from "./use-run";
 import { ago, parseRepo } from "@/lib/format";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import type { Member, Role } from "@/lib/types";
 
+// Settings read like a phone's: a heading, a group, and a footnote under it.
 function Block({ id, title, sub, children }: { id?: string; title: string; sub?: string; children: ReactNode }) {
   return (
-    <section id={id} className="grid scroll-mt-20 gap-4 border-t border-line py-8 md:grid-cols-[240px_1fr]">
-      <div>
-        <h2 className="text-[15px] font-semibold">{title}</h2>
-        {sub && <p className="mt-1 text-[13px] text-fg-2">{sub}</p>}
-      </div>
-      <div className="min-w-0">{children}</div>
+    <section id={id} className="scroll-mt-28">
+      <h2 className="t-section mb-2.5 px-1">{title}</h2>
+      <div className="pane p-5 sm:p-6">{children}</div>
+      {sub && <p className="t-caption mt-2.5 max-w-[62ch] px-1 leading-relaxed">{sub}</p>}
     </section>
   );
 }
@@ -80,7 +79,7 @@ export function Settings({
   }
 
   return (
-    <div className="max-w-4xl">
+    <div className="max-w-[760px] space-y-10">
       <Block title="Workspace" sub={owner ? "The repository is read from GitHub's public API." : "Only the team lead can change these."}>
         <form onSubmit={saveWorkspace} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-[1fr_96px]">
@@ -108,7 +107,7 @@ export function Settings({
               GitHub repository
             </label>
             <input id="ws-repo" name="repo" defaultValue={ws.repo ?? ""} disabled={!owner || ws.demo} className="field mono" placeholder="owner/repo or https://github.com/owner/repo" />
-            {lastError && <p className="mt-1.5 text-[12.5px] text-warn">Last sync: {lastError}</p>}
+            {lastError && <p className="mt-1.5 text-[12.5px] text-danger">Last sync: {lastError}</p>}
           </div>
           {owner && !ws.demo && (
             <button disabled={busy} className="btn btn-primary">
@@ -141,15 +140,15 @@ export function Settings({
       </Block>
 
       <Block title="People" sub="Members do the work. Mentors can read everything, comment and raise disputes, but can't change the record.">
-        <ul className="divide-y divide-line rounded-xl border border-line">
+        <ul className="divide overflow-hidden rounded-[16px] bg-surface-2">
           {members.map((m) => (
             <li key={m.user_id} className="flex flex-wrap items-center gap-3 px-3 py-2.5">
               <Avatar profile={m.profile} size={26} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[13.5px] font-medium">
-                  {m.profile.name} {m.user_id === me.id && <span className="font-normal text-fg-3">(you)</span>}
+                  {m.profile.name} {m.user_id === me.id && <span className="font-normal text-ink-3">(you)</span>}
                 </span>
-                <span className="mono block text-[11.5px] text-fg-3">{m.profile.github ? `@${m.profile.github}` : "no GitHub username"}</span>
+                <span className="mono block text-[11.5px] text-ink-3">{m.profile.github ? `@${m.profile.github}` : "no GitHub username"}</span>
               </span>
               {owner && m.user_id !== me.id && !ws.demo ? (
                 <>
@@ -158,7 +157,7 @@ export function Settings({
                     value={m.role}
                     disabled={busy}
                     onChange={(e) => run(() => sb.from("members").update({ role: e.target.value }).eq("workspace_id", ws.id).eq("user_id", m.user_id), "Role changed")}
-                    className="field h-8 min-h-0 w-32 py-0 text-[12.5px]"
+                    className="field field-sm w-32"
                   >
                     {(["owner", "member", "mentor"] as Role[]).map((r) => (
                       <option key={r} value={r}>
@@ -193,16 +192,16 @@ export function Settings({
             </button>
           </div>
           {invites.length > 0 && (
-            <ul className="mt-4 divide-y divide-line rounded-xl border border-line">
+            <ul className="mt-4 divide overflow-hidden rounded-[16px] bg-surface-2">
               {invites.map((i) => {
                 const expired = Date.parse(i.expires_at) < now;
                 return (
                   <li key={i.token} className="flex flex-wrap items-center gap-3 px-3 py-2.5 text-[13px]">
                     <span className="chip">{ROLE[i.role]}</span>
-                    <span className="mono min-w-0 flex-1 truncate text-[12px] text-fg-2">
+                    <span className="mono min-w-0 flex-1 truncate text-[12px] text-ink-2">
                       /join/{i.token}
                     </span>
-                    <span className={`text-[12px] ${expired ? "text-warn" : "text-fg-3"}`}>{expired ? "expired" : `made ${ago(i.created_at, now)}`}</span>
+                    <span className={`text-[12px] ${expired ? "text-danger" : "text-ink-3"}`}>{expired ? "expired" : `made ${ago(i.created_at, now)}`}</span>
                     <button
                       className="btn btn-ghost btn-sm"
                       onClick={async () => {
@@ -228,12 +227,12 @@ export function Settings({
           {owner ? (
             <div className="space-y-3">
               <label className="label" htmlFor="confirm">
-                Type <span className="mono text-fg">{ws.name}</span> to confirm
+                Type <span className="mono text-ink">{ws.name}</span> to confirm
               </label>
               <input id="confirm" value={confirm} onChange={(e) => setConfirm(e.target.value)} className="field max-w-sm" />
               <button
                 disabled={busy || confirm !== ws.name}
-                className="btn border-warn text-warn"
+                className="btn btn-danger"
                 onClick={async () => {
                   const { error } = await sb.from("workspaces").delete().eq("id", ws.id);
                   if (error) return toast(error.message, "error");

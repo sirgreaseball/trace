@@ -74,23 +74,23 @@ export function CreateWorkspace() {
               />
             </div>
           </div>
-          <p id="nw-key-help" className="-mt-2 text-[12px] text-fg-3">
+          <p id="nw-key-help" className="-mt-2 text-[12px] text-ink-3">
             The key prefixes every story and task, like <span className="mono">{(touched ? key : suggestKey(name)) || "LF"}-12</span>. Put it in commit messages and they link themselves.
           </p>
           <div>
             <label className="label" htmlFor="nw-course">
-              Course <span className="font-normal text-fg-3">(optional)</span>
+              Course <span className="font-normal text-ink-3">(optional)</span>
             </label>
             <input id="nw-course" name="course" maxLength={80} className="field" placeholder="SE Lab, Sem V" />
           </div>
           <div>
             <label className="label" htmlFor="nw-repo">
-              Public GitHub repository <span className="font-normal text-fg-3">(optional)</span>
+              Public GitHub repository <span className="font-normal text-ink-3">(optional)</span>
             </label>
             <input id="nw-repo" name="repo" className="field mono" placeholder="owner/repo" />
           </div>
           {error && (
-            <p role="alert" className="text-[13px] text-warn">
+            <p role="alert" className="text-[13px] text-danger">
               {error}
             </p>
           )}

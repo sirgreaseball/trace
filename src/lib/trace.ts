@@ -208,6 +208,46 @@ export function coverage(traces: StoryTrace[]) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Rewind: the record as it stood at a moment in the past
+
+/**
+ * The workspace as it stood at time t: later rows are hidden, tasks finished
+ * later are still in progress and disputes resolved later are still open.
+ * ponytail: links carry no timestamp of their own, so a link counts from the
+ * moment its commit landed. Exact if links ever get a created_at.
+ */
+export function asOf(d: TraceData, t: number): TraceData {
+  const by = (iso: string | null) => iso !== null && Date.parse(iso) <= t;
+  const commits = d.commits.filter((c) => by(c.committed_at));
+  const landed = new Set(commits.map((c) => c.id));
+  return {
+    ...d,
+    stories: d.stories.filter((s) => by(s.created_at)),
+    tasks: d.tasks
+      .filter((k) => by(k.created_at))
+      .map((k) => (k.status === "done" && k.done_at && !by(k.done_at) ? { ...k, status: "doing" as const, done_at: null } : k)),
+    commits,
+    links: d.links.filter((l) => landed.has(l.commit_id)),
+    decisions: d.decisions.filter((x) => by(x.created_at)),
+    disputes: d.disputes
+      .filter((x) => by(x.created_at))
+      .map((x) => (x.status === "resolved" && !by(x.resolved_at) ? { ...x, status: "open" as const, resolution: null, resolved_at: null } : x)),
+  };
+}
+
+export type Moment = { t: number; kind: "commit" | "task" | "decision" | "story"; who: string | null };
+
+/** Everything that happened, oldest first: the ticks on a timeline. */
+export function moments(d: TraceData): Moment[] {
+  return [
+    ...d.stories.map((s) => ({ t: Date.parse(s.created_at), kind: "story" as const, who: s.created_by })),
+    ...d.commits.map((c) => ({ t: Date.parse(c.committed_at), kind: "commit" as const, who: c.user_id })),
+    ...d.tasks.filter((k) => k.done_at).map((k) => ({ t: Date.parse(k.done_at!), kind: "task" as const, who: k.assignee })),
+    ...d.decisions.map((x) => ({ t: Date.parse(x.created_at), kind: "decision" as const, who: x.decided_by })),
+  ].sort((a, b) => a.t - b.t);
+}
+
 /** Commits with no confirmed link to any story or task. */
 export function orphanCommits(d: Pick<TraceData, "commits" | "links">): Commit[] {
   const linked = new Set(d.links.filter((l) => l.status === "confirmed").map((l) => l.commit_id));

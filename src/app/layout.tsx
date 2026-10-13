@@ -1,28 +1,28 @@
 import type { Metadata, Viewport } from "next";
-import { Archivo, Geist_Mono } from "next/font/google";
-import { Toaster } from "@/components/toast";
+import { Onest, Reddit_Mono } from "next/font/google";
+import { Island } from "@/components/island";
 import "./globals.css";
 
-const sans = Archivo({ variable: "--font-archivo", subsets: ["latin"], axes: ["wdth"] });
-const mono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+const sans = Onest({ variable: "--font-onest", subsets: ["latin", "latin-ext"] });
+const mono = Reddit_Mono({ variable: "--font-reddit-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
-  title: { default: "Trace: every requirement, traced", template: "%s | Trace" },
+  title: { default: "Trace: every requirement, traced", template: "%s · Trace" },
   description:
-    "The workspace for student software teams. Stories, tasks, commits, decisions and the people behind them, tied into one thread.",
+    "The workspace for student software teams. Stories, tasks, commits and decisions, traced to the people who did the work.",
   applicationName: "Trace",
   openGraph: {
     title: "Trace: every requirement, traced",
-    description: "Who did what, why it was decided, and what's left. For student software teams and their mentors.",
+    description: "Who built it, why it was decided, and what's left. For student software teams and their mentors.",
     type: "website",
   },
 };
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ebecef" },
-    { media: "(prefers-color-scheme: dark)", color: "#0a0b0d" },
+    { media: "(prefers-color-scheme: light)", color: "#f2f2f5" },
+    { media: "(prefers-color-scheme: dark)", color: "#08080c" },
   ],
   viewportFit: "cover",
 };
@@ -38,7 +38,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body>
         {children}
-        <Toaster />
+        <Island />
       </body>
     </html>
   );

@@ -1,8 +1,10 @@
 "use client";
 
+import { motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Composer } from "./composer";
+import { Icon } from "./icons";
 import { MessageRow } from "./message";
 import { useRun } from "./use-run";
 import { ago, day } from "@/lib/format";
@@ -36,6 +38,7 @@ export function Chat({
   const { run, busy } = useRun();
   const [messages, setMessages] = useState(initial);
   const [live, setLive] = useState(false);
+  const [mounted] = useState(now);
   const end = useRef<HTMLDivElement>(null);
   const profile = new Map(members.map((m) => [m.user_id, m.profile]));
   const base = `/w/${workspaceId}`;
@@ -65,11 +68,16 @@ export function Chat({
     };
   }, [workspaceId]);
 
+  // Scroll the conversation, never the page around it.
+  const first = useRef(true);
   useEffect(() => {
+    const box = end.current?.parentElement;
+    if (!box) return;
     const hash = location.hash.slice(1);
-    const target = hash && document.getElementById(hash);
-    if (target) target.scrollIntoView({ block: "center" });
-    else end.current?.scrollIntoView({ block: "end" });
+    const target = first.current && hash ? document.getElementById(hash) : null;
+    const top = target ? target.offsetTop - box.clientHeight / 2 : box.scrollHeight;
+    box.scrollTo({ top, behavior: first.current ? "instant" : "smooth" });
+    first.current = false;
   }, [messages.length]);
 
   async function logDecision(m: Message) {
@@ -81,24 +89,23 @@ export function Chat({
 
   const days = messages.map((m) => day(m.created_at));
   return (
-    <div className="flex h-[calc(100dvh-7rem)] flex-col sm:h-[calc(100dvh-8.5rem)]">
-      <header className="flex items-end justify-between gap-3 pb-4">
-        <div>
-          <h1 className="text-[26px] font-semibold sm:text-[30px]">Chat</h1>
-        </div>
-        <p className="flex items-center gap-2 text-[12px] text-fg-3">
-          <span className={`size-1.5 rounded-full ${live ? "bg-thread" : "bg-fg-3"}`} />
+    <div className="flex h-[calc(100dvh-var(--bar-h)-var(--dock-room)-48px)] min-h-[420px] flex-col">
+      <header className="flex items-end justify-between gap-3 pb-5">
+        <h1 className="t-title">Chat</h1>
+        <p className="mb-1 flex items-center gap-2 text-[13px] text-ink-3">
+          <span className={`size-2 rounded-full ${live ? "bg-[var(--r3)] shadow-[0_0_10px_var(--r3)]" : "bg-ink-3"}`} style={live ? { animation: "breathe 2.6s ease-in-out infinite" } : undefined} />
           {live ? "Live" : "Connecting…"}
         </p>
       </header>
-      <div className="panel flex min-h-0 flex-1 flex-col">
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4" aria-live="polite">
+      <div className="pane flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-5 sm:px-6" aria-live="polite">
           {messages.length === 0 && (
-            <div className="grid h-full place-items-center text-center text-fg-2">
+            <div className="grid h-full place-items-center text-center text-ink-2">
               <div>
-                <p className="font-medium text-fg">Start the conversation</p>
-                <p className="mt-1 max-w-sm text-[13px]">
-                  Mention a story with <span className="mono">#{keyPrefix}-1</span>. Start a message with <span className="mono">/decide</span> to log a decision.
+                <Icon name="chat" size={34} className="mx-auto text-ink-3" />
+                <p className="t-headline mt-3 text-ink">Start the conversation</p>
+                <p className="mt-1 max-w-sm text-[14px]">
+                  Mention a story with <span className="ref text-ink-2">#{keyPrefix}-1</span>. Start a message with <span className="ref text-ink-2">/decide</span> to log a decision.
                 </p>
               </div>
             </div>
@@ -110,14 +117,20 @@ export function Chat({
             const compact = !showDay && !!prev && prev.user_id === m.user_id && Date.parse(m.created_at) - Date.parse(prev.created_at) < 600_000;
             const decided = decisionByMessage[m.id];
             const hint = canDecide && !decided && DECISION_HINT.test(m.body);
+            const fresh = Date.parse(m.created_at) > mounted;
             return (
-              <div key={m.id} id={`m-${m.id}`} className="scroll-mt-24 rounded-lg target:bg-thread-soft">
+              <motion.div
+                key={m.id}
+                id={`m-${m.id}`}
+                className="scroll-mt-24 rounded-[20px] target:bg-accent-soft"
+                initial={fresh ? { opacity: 0, y: 14, scale: 0.97, filter: "blur(4px)" } : false}
+                animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+                transition={{ type: "spring", bounce: 0.24, duration: 0.55 }}
+              >
                 {showDay && (
-                  <div className="my-4 flex items-center gap-3 text-[11px] text-fg-3">
-                    <span className="rule flex-1" />
-                    {d}
-                    <span className="rule flex-1" />
-                  </div>
+                  <p className="my-6 text-center">
+                    <span className="chip h-6 bg-surface-2 px-3 shadow-[0_0_0_1px_var(--line)]">{d}</span>
+                  </p>
                 )}
                 <MessageRow
                   author={m.user_id ? (profile.get(m.user_id) ?? null) : null}
@@ -127,21 +140,22 @@ export function Chat({
                   base={base}
                   compact={compact}
                   decision={decided}
+                  mine={m.user_id === me}
                   action={
                     canDecide && !decided ? (
-                      <button disabled={busy} onClick={() => logDecision(m)} className={`btn btn-sm ${hint ? "btn-thread" : ""}`}>
+                      <button disabled={busy} onClick={() => logDecision(m)} className={`btn btn-sm ${hint ? "btn-accent" : ""}`}>
                         Log as decision
                       </button>
                     ) : null
                   }
                 />
-              </div>
+              </motion.div>
             );
           })}
           <div ref={end} />
         </div>
-        <div className="border-t border-line p-3">
-          <Composer workspaceId={workspaceId} userId={me} stories={stories} keyPrefix={keyPrefix} onSent={() => router.refresh()} placeholder={`Message the team…  #${keyPrefix}-3 to mention a story, /decide to log a decision`} />
+        <div className="border-t border-line bg-[light-dark(rgb(246_246_249/0.7),rgb(255_255_255/0.02))] p-3">
+          <Composer workspaceId={workspaceId} userId={me} stories={stories} keyPrefix={keyPrefix} onSent={() => router.refresh()} placeholder={`Message the team…  #${keyPrefix}-3 mentions a story, /decide logs a decision`} />
         </div>
       </div>
     </div>

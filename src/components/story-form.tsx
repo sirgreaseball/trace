@@ -75,22 +75,22 @@ export function StoryForm({ workspaceId, story, trigger }: { workspaceId: string
           </div>
           <fieldset className="grid gap-3 sm:grid-cols-3">
             <legend className="label">The user story</legend>
-            <label className="text-[12px] text-fg-3">
+            <label className="text-[12px] text-ink-3">
               As a…
               <input name="who" defaultValue={parts.who} className="field mt-1" placeholder="student" />
             </label>
-            <label className="text-[12px] text-fg-3">
+            <label className="text-[12px] text-ink-3">
               I want…
               <input name="want" required defaultValue={parts.want} className="field mt-1" placeholder="to report what I lost" />
             </label>
-            <label className="text-[12px] text-fg-3">
+            <label className="text-[12px] text-ink-3">
               So that…
               <input name="why" defaultValue={parts.why} className="field mt-1" placeholder="a finder can return it" />
             </label>
           </fieldset>
           <div>
             <label className="label" htmlFor="acceptance">
-              Acceptance criteria <span className="font-normal text-fg-3">(one per line)</span>
+              Acceptance criteria <span className="font-normal text-ink-3">(one per line)</span>
             </label>
             <textarea
               id="acceptance"

@@ -1,34 +1,43 @@
 import Link from "next/link";
+import { ViewTransition, type CSSProperties } from "react";
 import { CsvButton } from "@/components/csv-button";
-import { Avatars, PageHeader, PriorityChip, StateChip } from "@/components/ui";
+import { Icon } from "@/components/icons";
+import { Segmented } from "@/components/rings";
+import { StoryForm } from "@/components/story-form";
+import { Avatars, Empty, PageTitle, personColor, PriorityTag, StateMark, STATE_HINT, STATE_LABEL } from "@/components/ui";
 import { loadWorkspace } from "@/lib/data";
-import { firstName } from "@/lib/format";
-import { coverage, orphanCommits, ref, traceStories } from "@/lib/trace";
+import { firstName, plural } from "@/lib/format";
+import { coverage, orphanCommits, ref, traceStories, type StoryState, type StoryTrace } from "@/lib/trace";
+import type { Profile } from "@/lib/types";
 
-export const metadata = { title: "Trace grid" };
+export const metadata = { title: "Trace" };
+
+const STATES: ("all" | StoryState)[] = ["all", "building", "planned", "untraced", "traced"];
 
 export default async function TracePage(props: PageProps<"/w/[id]/trace">) {
   const { id } = await props.params;
   const sp = await props.searchParams;
   const view = sp.view === "people" ? "people" : "evidence";
   const v = await loadWorkspace(id);
-  const traces = traceStories(v);
-  const cov = coverage(traces);
+  const all = traceStories(v);
+  const cov = coverage(all);
+  const filter = STATES.find((s) => s === sp.state) ?? "all";
+  const list = filter === "all" ? all : all.filter((t) => t.state === filter);
   const orphans = orphanCommits(v);
   const profile = new Map(v.members.map((m) => [m.user_id, m.profile]));
   const builders = v.members.filter((m) => m.role !== "mentor");
   const base = `/w/${id}`;
-
-  // Per story, per person: commits + finished tasks.
-  const share = (storyIdx: number, userId: string) => {
-    const t = traces[storyIdx];
-    return t.commits.filter((c) => c.user_id === userId).length + t.tasks.filter((k) => k.assignee === userId && k.status === "done").length;
+  const q = (patch: Record<string, string | null>) => {
+    const p = new URLSearchParams();
+    const next = { state: filter === "all" ? null : filter, view: view === "people" ? "people" : null, ...patch };
+    for (const [k, val] of Object.entries(next)) if (val) p.set(k, val);
+    const s = p.toString();
+    return s ? `${base}/trace?${s}` : `${base}/trace`;
   };
-  const maxShare = Math.max(1, ...traces.flatMap((_, i) => builders.map((m) => share(i, m.user_id))));
 
   const csv = [
     ["ID", "Story", "Priority", "State", "Tasks done", "Tasks total", "Commits", "Decisions", "People", "Acceptance criteria"],
-    ...traces.map((t) => [
+    ...all.map((t) => [
       ref(v.key, t.story.number),
       t.story.title,
       t.story.priority,
@@ -42,139 +51,173 @@ export default async function TracePage(props: PageProps<"/w/[id]/trace">) {
     ]),
   ];
 
+  // Per story, per person: commits plus finished tasks.
+  const share = (t: StoryTrace, uid: string) => t.commits.filter((c) => c.user_id === uid).length + t.tasks.filter((k) => k.assignee === uid && k.status === "done").length;
+  const maxShare = Math.max(1, ...all.flatMap((t) => builders.map((m) => share(t, m.user_id))));
+
   return (
     <>
-      <PageHeader
+      <PageTitle
         title="Trace"
-        sub={`${cov.traced} of ${cov.total} stories traced end to end. Every row shows what stands behind a requirement.`}
+        sub={`Every story and what stands behind it: tasks, commits, decisions and people. ${cov.traced} of ${plural(cov.total, "story", "stories")} traced end to end.`}
       >
-        <div className="flex rounded-lg border border-line-2 p-0.5" role="tablist" aria-label="View">
-          <Link role="tab" aria-selected={view === "evidence"} href={`${base}/trace`} className={`btn btn-sm border-0 ${view === "evidence" ? "bg-bg-3" : "btn-ghost"}`}>
-            By evidence
-          </Link>
-          <Link role="tab" aria-selected={view === "people"} href={`${base}/trace?view=people`} className={`btn btn-sm border-0 ${view === "people" ? "bg-bg-3" : "btn-ghost"}`}>
-            By person
-          </Link>
-        </div>
         <CsvButton rows={csv} filename={`${v.key}-traceability-matrix.csv`} />
-      </PageHeader>
+        {v.me.role !== "mentor" && <StoryForm workspaceId={id} />}
+      </PageTitle>
 
-      <div className="panel overflow-x-auto">
-        <table className="w-full min-w-[760px] border-collapse text-left text-[13px]">
-          <thead>
-            <tr className="border-b border-line text-[11.5px] text-fg-3">
-              <th className="w-16 py-2.5 pr-2 pl-4 font-medium">ID</th>
-              <th className="py-2.5 pr-3 font-medium">Story</th>
-              <th className="w-20 py-2.5 pr-3 font-medium">Priority</th>
-              <th className="w-28 py-2.5 pr-3 font-medium">State</th>
-              {view === "evidence" ? (
-                <>
-                  <th className="w-32 py-2.5 pr-3 font-medium">Tasks</th>
-                  <th className="w-20 py-2.5 pr-3 text-right font-medium">Commits</th>
-                  <th className="w-24 py-2.5 pr-3 font-medium">Decisions</th>
-                  <th className="w-28 py-2.5 pr-4 font-medium">People</th>
-                </>
-              ) : (
-                builders.map((m) => (
-                  <th key={m.user_id} className="w-20 py-2.5 pr-3 text-center font-medium">
-                    {firstName(m.profile.name)}
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <Segmented
+          id="trace-state"
+          label="Filter by state"
+          value={filter}
+          items={STATES.map((s) => ({ key: s, label: s === "all" ? "All" : STATE_LABEL[s], href: q({ state: s === "all" ? null : s }), count: s === "all" ? all.length : all.filter((t) => t.state === s).length }))}
+        />
+        <Segmented
+          id="trace-view"
+          label="View"
+          value={view}
+          items={[
+            { key: "evidence", label: "Evidence", href: q({ view: null }) },
+            { key: "people", label: "People", href: q({ view: "people" }) },
+          ]}
+        />
+      </div>
+
+      {all.length === 0 ? (
+        <Empty title="No stories yet" action={v.me.role !== "mentor" ? <StoryForm workspaceId={id} /> : undefined}>
+          Start with the one thing your project must do. Write it as “As a …, I want …, so that …”.
+        </Empty>
+      ) : list.length === 0 ? (
+        <Empty title={`No ${STATE_LABEL[filter as StoryState].toLowerCase()} stories`}>{STATE_HINT[filter as StoryState]}. Try another filter.</Empty>
+      ) : view === "evidence" ? (
+        <ul className="pane divide overflow-hidden">
+          {list.map((t, i) => (
+            <li key={t.story.id} className="rise" style={{ "--i": Math.min(i, 10) } as CSSProperties}>
+              <StoryRow t={t} keyPrefix={v.key} href={`${base}/stories/${t.story.number}`} profile={profile} />
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="pane overflow-x-auto">
+          <table className="w-full min-w-[640px] border-collapse text-left">
+            <thead>
+              <tr className="text-[12px] text-ink-3">
+                <th className="py-3.5 pr-3 pl-5 font-[560]">Story</th>
+                {builders.map((m) => (
+                  <th key={m.user_id} className="w-24 px-2 py-3.5 text-center font-[560]">
+                    <span className="inline-flex flex-col items-center gap-1.5">
+                      <span className="size-2.5 rounded-full" style={{ background: personColor(m.profile.hue) }} />
+                      {firstName(m.profile.name)}
+                    </span>
                   </th>
-                ))
-              )}
-            </tr>
-          </thead>
-          <tbody>
-            {traces.map((t, i) => (
-              <tr key={t.story.id} className="row-hover border-b border-line last:border-0">
-                <td className="mono py-2.5 pr-2 pl-4 text-[11.5px] text-fg-3">{ref(v.key, t.story.number)}</td>
-                <td className="py-2.5 pr-3">
-                  <Link href={`${base}/stories/${t.story.number}`} className="font-medium hover:underline">
-                    {t.story.title}
-                  </Link>
-                </td>
-                <td className="py-2.5 pr-3">
-                  <PriorityChip priority={t.story.priority} />
-                </td>
-                <td className="py-2.5 pr-3">
-                  <StateChip state={t.state} />
-                </td>
-                {view === "evidence" ? (
-                  <>
-                    <td className="py-2.5 pr-3">
-                      {t.tasks.length ? (
-                        <span className="inline-flex items-center gap-1" title={`${t.tasks.filter((k) => k.status === "done").length} of ${t.tasks.length} done`}>
-                          {t.tasks.map((k) => (
-                            <span
-                              key={k.id}
-                              className={`size-2 rounded-full ${k.status === "done" ? "bg-thread" : k.status === "doing" ? "border border-thread bg-thread-soft" : "border border-fg-3"}`}
-                            />
-                          ))}
-                          <span className="ml-1 text-[11.5px] text-fg-3 num">
-                            {t.tasks.filter((k) => k.status === "done").length}/{t.tasks.length}
-                          </span>
-                        </span>
-                      ) : (
-                        <span className="text-fg-3">-</span>
-                      )}
-                    </td>
-                    <td className="py-2.5 pr-3 text-right num">{t.commits.length || <span className="text-fg-3">-</span>}</td>
-                    <td className="py-2.5 pr-3">
-                      {t.decisions.length ? (
-                        <span className="flex flex-wrap gap-1">
-                          {t.decisions.map((x) => (
-                            <Link key={x.id} href={`${base}/decisions#d-${x.number}`} className="chip mono text-[10.5px] hover:text-fg">
-                              D-{x.number}
-                            </Link>
-                          ))}
-                        </span>
-                      ) : (
-                        <span className="text-fg-3">-</span>
-                      )}
-                    </td>
-                    <td className="py-2.5 pr-4">
-                      {t.people.length ? <Avatars people={t.people.map((p) => profile.get(p)!).filter(Boolean)} /> : <span className="text-fg-3">-</span>}
-                    </td>
-                  </>
-                ) : (
-                  builders.map((m) => {
-                    const n = share(i, m.user_id);
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((t) => (
+                <tr key={t.story.id} className="row border-t border-line">
+                  <td className="py-3 pr-3 pl-5">
+                    <Link href={`${base}/stories/${t.story.number}`} className="flex items-center gap-3">
+                      <StateMark state={t.state} />
+                      <span className="ref w-11 shrink-0">{ref(v.key, t.story.number)}</span>
+                      <span className="truncate text-[14px] font-[540]">{t.story.title}</span>
+                    </Link>
+                  </td>
+                  {builders.map((m) => {
+                    const n = share(t, m.user_id);
+                    const size = n ? 12 + Math.sqrt(n / maxShare) * 22 : 0;
                     return (
-                      <td key={m.user_id} className="py-2 pr-3 text-center">
+                      <td key={m.user_id} className="px-2 py-2 text-center">
                         {n ? (
                           <span
-                            className="inline-grid h-6 min-w-8 place-items-center rounded-md px-1.5 text-[12px] font-medium num"
-                            style={{
-                              background: `color-mix(in oklab, oklch(0.62 0.13 ${m.profile.hue}) ${Math.round(18 + (n / maxShare) * 62)}%, transparent)`,
-                              color: n / maxShare > 0.5 ? "#fff" : "var(--fg)",
-                            }}
+                            className="num inline-grid place-items-center rounded-full text-[11px] font-semibold text-white"
+                            style={{ width: size, height: size, background: personColor(m.profile.hue, 0.64, 0.16), boxShadow: `0 4px 14px -4px ${personColor(m.profile.hue, 0.6, 0.18)}` }}
+                            title={`${m.profile.name}: ${plural(n, "piece")} of work`}
                           >
-                            {n}
+                            {size > 20 ? n : ""}
                           </span>
                         ) : (
-                          <span className="sr-only">none</span>
+                          <span className="inline-block size-1 rounded-full bg-line-3" aria-label="none" />
                         )}
                       </td>
                     );
-                  })
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {traces.length === 0 && <p className="px-4 py-10 text-center text-fg-2">No stories yet. Add stories to start the grid.</p>}
-      </div>
-      {view === "people" && <p className="mt-3 text-[12px] text-fg-3">Each cell counts that person&apos;s commits and finished tasks on the story.</p>}
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="t-caption border-t border-line px-5 py-3">Each circle is that person&apos;s commits and finished tasks on the story. Bigger means more.</p>
+        </div>
+      )}
 
       {orphans.length > 0 && (
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-line-2 px-4 py-3">
-          <p className="text-[13px] text-fg-2">
-            <span className="font-medium text-fg">{orphans.length} commits</span> aren&apos;t tied to any story yet, so they don&apos;t count towards the trace.
+        <div className="glass mt-6 flex flex-wrap items-center gap-4 rounded-[22px] px-5 py-4">
+          <span className="grid size-10 shrink-0 place-items-center rounded-[13px] bg-accent-soft text-accent-ink">
+            <Icon name="link" size={19} bold />
+          </span>
+          <p className="min-w-0 flex-1 text-[14px] text-ink-2">
+            <span className="font-[600] text-ink">{plural(orphans.length, "commit")} aren&apos;t tied to a story yet</span>, so they don&apos;t count towards the trace.
           </p>
           <Link href={`${base}/commits?show=loose`} className="btn btn-sm">
-            Tie them up
+            Tie them up <Icon name="arrow" size={13} />
           </Link>
         </div>
       )}
     </>
+  );
+}
+
+function StoryRow({ t, keyPrefix, href, profile }: { t: StoryTrace; keyPrefix: string; href: string; profile: Map<string, Pick<Profile, "name" | "hue">> }) {
+  const done = t.tasks.filter((k) => k.status === "done").length;
+  const traced = t.state === "traced";
+  return (
+    <Link href={href} className="row group grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-4 gap-y-3 px-5 py-4 md:grid-cols-[auto_minmax(0,1fr)_minmax(0,300px)_auto]">
+      <StateMark state={t.state} />
+      <span className="min-w-0">
+        <span className="flex items-center gap-2">
+          <span className="ref shrink-0">{ref(keyPrefix, t.story.number)}</span>
+          <ViewTransition name={`story-${t.story.id}`} share="morph">
+            <span className="truncate text-[15px] font-[580] tracking-[-0.01em]">{t.story.title}</span>
+          </ViewTransition>
+        </span>
+        <span className="mt-0.5 block truncate text-[13px] text-ink-3">{t.story.narrative || "No narrative yet"}</span>
+      </span>
+
+      {/* The chain: tasks, then commits by colour of whoever made them, then decisions. */}
+      <span className="col-span-3 flex min-w-0 items-center gap-2.5 md:col-span-1" aria-label={`${done} of ${t.tasks.length} tasks done, ${t.commits.length} commits, ${t.decisions.length} decisions`}>
+        <span className="flex shrink-0 items-center gap-1">
+          {t.tasks.slice(0, 8).map((k) => (
+            <span key={k.id} className={`mark size-[9px] ${k.status === "done" ? "bg-ink" : k.status === "doing" ? "mark-building size-[9px]" : "mark-planned size-[9px]"}`} />
+          ))}
+          {t.tasks.length === 0 && <span className="text-[12px] text-ink-3">no tasks</span>}
+        </span>
+        <span className={`h-[2px] min-w-4 flex-1 rounded-full ${traced ? "bg-[linear-gradient(90deg,var(--r1a),var(--r1b))]" : "bg-line-2"}`} />
+        <span className="flex shrink-0 items-center gap-[3px]">
+          {t.commits.slice(0, 10).map((c) => (
+            <span key={c.id} className="h-3.5 w-[5px] rounded-full" style={{ background: personColor(profile.get(c.user_id ?? "")?.hue, 0.66, 0.15) }} title={c.message.split("\n")[0]} />
+          ))}
+          {t.commits.length > 10 && <span className="num text-[11px] text-ink-3">+{t.commits.length - 10}</span>}
+          {t.commits.length === 0 && <span className="text-[12px] text-ink-3">no commits</span>}
+        </span>
+        {t.decisions.length > 0 && (
+          <>
+            <span className="h-[2px] w-3 shrink-0 rounded-full bg-line-2" />
+            <span className="flex shrink-0 items-center gap-1">
+              {t.decisions.slice(0, 3).map((x) => (
+                <span key={x.id} className="size-2 rotate-45 rounded-[2px] bg-[var(--r2)]" title={`D-${x.number}: ${x.title}`} />
+              ))}
+            </span>
+          </>
+        )}
+      </span>
+
+      <span className="flex items-center gap-3">
+        <span className="hidden lg:block">
+          <PriorityTag priority={t.story.priority} />
+        </span>
+        <span className="hidden w-[76px] justify-end sm:flex">{t.people.length > 0 && <Avatars people={t.people.map((p) => profile.get(p)!).filter(Boolean)} size={24} max={3} />}</span>
+        <Icon name="right" size={14} className="text-ink-3 transition-transform duration-300 group-hover:translate-x-0.5" />
+      </span>
+    </Link>
   );
 }

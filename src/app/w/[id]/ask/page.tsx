@@ -1,6 +1,4 @@
 import { Ask } from "@/components/ask";
-import { PageHeader } from "@/components/ui";
-import { aiEnabled } from "@/lib/ai";
 import { loadWorkspace } from "@/lib/data";
 
 export const metadata = { title: "Ask" };
@@ -15,11 +13,11 @@ export default async function AskPage(props: PageProps<"/w/[id]/ask">) {
   ].filter((s): s is string => !!s);
   return (
     <>
-      <PageHeader
-        title="Ask"
-        sub="Answers come only from your team's stories, decisions, chat and commits, and every claim points at its source."
-      />
-      <Ask workspaceId={id} suggestions={suggestions.slice(0, 4)} ai={aiEnabled()} />
+      <header className="mx-auto mb-10 max-w-3xl pt-4 text-center sm:pt-10">
+        <h1 className="t-title">Ask the record</h1>
+        <p className="mx-auto mt-3 max-w-[54ch] text-[15px] text-ink-2">Answers come only from your team&apos;s stories, decisions, chat and commits, and every claim points at its source.</p>
+      </header>
+      <Ask workspaceId={id} suggestions={suggestions.slice(0, 4)} />
     </>
   );
 }

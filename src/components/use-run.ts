@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { toast } from "./toast";
+import { toast } from "./island";
 
 export function humanize(message: string) {
   if (/row-level security|permission denied/i.test(message)) return "You don't have permission to do that here.";

@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { connection } from "next/server";
 import { CommitList } from "@/components/commit-list";
+import { Icon } from "@/components/icons";
+import { Segmented } from "@/components/rings";
 import { SyncButton } from "@/components/sync-button";
-import { PageHeader } from "@/components/ui";
+import { PageTitle } from "@/components/ui";
 import { requestTime } from "@/lib/format";
 import { loadWorkspace } from "@/lib/data";
 import { orphanCommits } from "@/lib/trace";
@@ -29,40 +31,39 @@ export default async function CommitsPage(props: PageProps<"/w/[id]/commits">) {
 
   return (
     <>
-      <PageHeader
+      <PageTitle
         title="Commits"
         sub={
           <>
-            Commits that name an item like <span className="mono text-fg">{v.key}-12</span> link themselves. For the rest, Trace suggests a match and a person confirms it.
+            A commit that names an item like <span className="ref text-ink">{v.key}-12</span> links itself. For the rest, Trace suggests a match and a person says yes or no.
           </>
         }
       >
         {v.ws.repo && v.me.role !== "mentor" && <SyncButton workspaceId={id} />}
-      </PageHeader>
+      </PageTitle>
 
       {unclaimed.length > 0 && (
-        <div className="mb-5 rounded-xl border border-dashed border-line-2 px-4 py-3 text-[13px] text-fg-2">
-          Commits by <span className="font-medium text-fg">{unclaimed.slice(0, 4).join(", ")}</span>
-          {unclaimed.length > 4 ? ` and ${unclaimed.length - 4} more` : ""} aren&apos;t on anyone&apos;s receipt yet. Each member adds their GitHub username in{" "}
-          <Link className="link" href={`${base}/settings#profile`}>
-            Settings
-          </Link>
-          .
+        <div className="glass mb-6 flex items-center gap-3.5 rounded-[20px] px-4 py-3.5 text-[14px] text-ink-2">
+          <Icon name="info" size={20} className="shrink-0 text-ink-3" />
+          <p>
+            Commits by <span className="font-[600] text-ink">{unclaimed.slice(0, 4).join(", ")}</span>
+            {unclaimed.length > 4 ? ` and ${unclaimed.length - 4} more` : ""} aren&apos;t on anyone&apos;s receipt yet. Each member adds their GitHub username in{" "}
+            <Link className="link" href={`${base}/settings#profile`}>
+              Settings
+            </Link>
+            .
+          </p>
         </div>
       )}
 
-      <nav className="mb-4 flex flex-wrap gap-1" aria-label="Filter commits">
-        {tabs.map((t) => (
-          <Link
-            key={t.key}
-            href={t.key === "all" ? `${base}/commits` : `${base}/commits?show=${t.key}`}
-            aria-current={show === t.key ? "page" : undefined}
-            className={`btn btn-sm ${show === t.key ? "" : "btn-ghost"}`}
-          >
-            {t.label} <span className="text-fg-3 num">{t.n}</span>
-          </Link>
-        ))}
-      </nav>
+      <div className="mb-6">
+        <Segmented
+          id="commit-filter"
+          label="Filter commits"
+          value={show}
+          items={tabs.map((t) => ({ key: t.key, label: t.label, count: t.n, href: t.key === "all" ? `${base}/commits` : `${base}/commits?show=${t.key}` }))}
+        />
+      </div>
 
       <CommitList
         workspaceId={id}
