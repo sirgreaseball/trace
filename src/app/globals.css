@@ -828,6 +828,15 @@ dialog.sheet:not([open])::backdrop {
     transform: rotate(360deg);
   }
 }
+@keyframes cue {
+  0% {
+    transform: translateY(-100%);
+  }
+  65%,
+  100% {
+    transform: translateY(320%);
+  }
+}
 @keyframes breathe {
   50% {
     opacity: 0.35;
