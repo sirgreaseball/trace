@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { Icon } from "./icons";
 import { toast } from "./island";
+import { AddByEmail, TeamCodes } from "./invite";
 import { Avatar } from "./ui";
 import { useRun } from "./use-run";
 import { ago, parseRepo } from "@/lib/format";
@@ -29,6 +30,7 @@ export function Settings({
   profile,
   members,
   invites,
+  pending,
   lastError,
   now,
 }: {
@@ -37,6 +39,7 @@ export function Settings({
   profile: { name: string; github: string | null };
   members: Member[];
   invites: { token: string; role: Role; created_at: string; expires_at: string }[];
+  pending: { email: string; role: Role }[];
   lastError: string | null;
   now: number;
 }) {
@@ -182,13 +185,25 @@ export function Settings({
       </Block>
 
       {owner && !ws.demo && (
-        <Block title="Invite" sub="Links work for 14 days. Anyone with the link can join, so share it only with your team or mentor.">
+        <Block title="Team codes" sub="Anyone who types a code on their home screen joins with that role. Make a new code to switch the old one off.">
+          <TeamCodes workspaceId={ws.id} />
+        </Block>
+      )}
+
+      {owner && !ws.demo && (
+        <Block title="Add by email" sub="If they already have an account they join straight away. If not, they join the moment they sign up or sign in with that email.">
+          <AddByEmail workspaceId={ws.id} pending={pending} />
+        </Block>
+      )}
+
+      {owner && !ws.demo && (
+        <Block title="Invite links" sub="Links work for 14 days. Anyone with the link can join, so share it only with your team or mentor.">
           <div className="flex flex-wrap gap-2">
-            <button className="btn btn-primary" onClick={() => invite("member")}>
-              <Icon name="link" size={14} /> Copy member invite
+            <button className="btn" onClick={() => invite("member")}>
+              <Icon name="link" size={14} /> Copy teammate link
             </button>
             <button className="btn" onClick={() => invite("mentor")}>
-              <Icon name="mentor" size={14} /> Copy mentor invite
+              <Icon name="mentor" size={14} /> Copy mentor link
             </button>
           </div>
           {invites.length > 0 && (

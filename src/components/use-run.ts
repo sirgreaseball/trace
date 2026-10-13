@@ -11,6 +11,9 @@ export function humanize(message: string) {
   if (/outside this workspace/i.test(message)) return "That item belongs to another workspace.";
   if (/violates check constraint/i.test(message)) return "Some of those values aren't allowed. Check the fields and try again.";
   if (/failed to fetch|network/i.test(message)) return "You're offline or the server is unreachable.";
+  if (/no team has that code/i.test(message)) return "No team has that code. Check it with your team lead.";
+  if (/does not look like an email/i.test(message)) return "That doesn't look like an email address.";
+  if (/only the team lead/i.test(message)) return "Only the team lead can do that.";
   return message;
 }
 

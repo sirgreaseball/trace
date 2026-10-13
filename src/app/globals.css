@@ -39,15 +39,15 @@
   --danger-soft: light-dark(rgb(220 50 56 / 0.09), rgb(255 106 112 / 0.13));
 
   /* The three rings: stories traced, tasks done, commits linked. */
-  --r1a: #ff6a2c;
-  --r1b: #ff2f6d;
-  --r2a: #c3a6ff;
-  --r2b: #6f48ff;
-  --r3a: #3fe3cf;
-  --r3b: #1f97ff;
-  --r1: light-dark(#ff4d3a, #ff5f4a);
-  --r2: light-dark(#7a55ff, #9d80ff);
-  --r3: light-dark(#1c8fe8, #3fb2ff);
+  --r1a: #ff6a14;
+  --r1b: #e8124f;
+  --r2a: #9a5cff;
+  --r2b: #4f22e0;
+  --r3a: #0fcf9f;
+  --r3b: #0672f5;
+  --r1: light-dark(#e8263f, #ff4d62);
+  --r2: light-dark(#6136ea, #9573ff);
+  --r3: light-dark(#0a86de, #2db0ff);
 
   --shadow-sm: 0 1px 2px light-dark(rgb(20 20 45 / 0.06), rgb(0 0 0 / 0.4));
   --shadow: 0 1px 2px light-dark(rgb(20 20 45 / 0.04), rgb(0 0 0 / 0.35)), 0 10px 30px -10px light-dark(rgb(20 20 45 / 0.14), rgb(0 0 0 / 0.6));
@@ -234,10 +234,11 @@
     background: var(--surface-2);
     border-radius: 16px;
   }
+  /* Frosted material. Write backdrop-filter once: the build adds the Safari
+     prefix itself, and a hand-written prefix makes it drop the standard one. */
   .glass {
     background: var(--glass);
-    backdrop-filter: blur(22px) saturate(1.8);
-    -webkit-backdrop-filter: blur(22px) saturate(1.8);
+    backdrop-filter: blur(24px) saturate(1.8);
     box-shadow:
       inset 0 1px 0 var(--glass-edge),
       inset 0 0 0 1px light-dark(rgb(255 255 255 / 0.35), rgb(255 255 255 / 0.05)),
@@ -246,8 +247,7 @@
   }
   .glass-strong {
     background: var(--glass-2);
-    backdrop-filter: blur(30px) saturate(1.9);
-    -webkit-backdrop-filter: blur(30px) saturate(1.9);
+    backdrop-filter: blur(36px) saturate(2);
     box-shadow:
       inset 0 1px 0 var(--glass-edge),
       0 0 0 1px var(--glass-rim),
@@ -715,7 +715,6 @@ dialog.sheet {
   color: var(--ink);
   background: var(--glass-2);
   backdrop-filter: blur(40px) saturate(1.9);
-  -webkit-backdrop-filter: blur(40px) saturate(1.9);
   border-radius: 28px;
   box-shadow: inset 0 1px 0 var(--glass-edge), 0 0 0 1px var(--glass-rim), var(--shadow-lg);
   max-height: min(88dvh, 860px);
@@ -845,6 +844,13 @@ dialog.sheet:not([open])::backdrop {
   }
 }
 
+/* During the theme reveal nothing transitions on its own (see setTheme). */
+.theming *,
+.theming *::before,
+.theming *::after {
+  transition: none !important;
+}
+
 /* ── Accessibility preferences ───────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -868,7 +874,6 @@ dialog.sheet:not([open])::backdrop {
   dialog.sheet {
     background: var(--surface);
     backdrop-filter: none;
-    -webkit-backdrop-filter: none;
   }
 }
 @media (prefers-contrast: more) {

@@ -19,11 +19,27 @@ const LIGHT = [
   { hue: 320, weight: 0.2 },
 ];
 
+/** Which one-tap sign-ins are switched on in Supabase. A button shows up as soon as its provider is enabled. */
+async function providers() {
+  try {
+    const r = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/settings`, {
+      headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY! },
+      next: { revalidate: 120 },
+    });
+    const j = (await r.json()) as { external?: Record<string, boolean> };
+    return { google: !!j.external?.google, github: !!j.external?.github };
+  } catch {
+    return { google: false, github: false };
+  }
+}
+
 export default async function EnterPage(props: PageProps<"/enter">) {
   const sp = await props.searchParams;
   const next = safeNext(typeof sp.next === "string" ? sp.next : null);
   if (await currentUser()) redirect(next);
   const error = typeof sp.error === "string" ? sp.error : null;
+  const notice = typeof sp.notice === "string" ? sp.notice : null;
+  const oauth = await providers();
 
   return (
     <main className="relative grid min-h-dvh overflow-hidden lg:grid-cols-[1.15fr_1fr]">
@@ -77,7 +93,12 @@ export default async function EnterPage(props: PageProps<"/enter">) {
                 {error}
               </p>
             )}
-            <EnterForm next={next} github={process.env.NEXT_PUBLIC_GITHUB_AUTH === "1"} />
+            {notice && (
+              <p role="status" className="mb-4 rounded-[12px] bg-[light-dark(rgb(16_160_110/0.1),rgb(60_220_160/0.14))] px-3.5 py-2.5 text-[13.5px] font-[560] text-[light-dark(#0b7a52,#5fe3b0)]">
+                {notice}
+              </p>
+            )}
+            <EnterForm next={next} providers={oauth} />
           </div>
         </div>
       </section>

@@ -20,8 +20,8 @@ export function Dock({ items, tail, isActive }: { items: DockItem[]; tail: DockI
           onMouseMove={(e) => mouseX.set(e.clientX)}
           onMouseLeave={() => mouseX.set(Infinity)}
           className="glass-strong flex h-[62px] items-end gap-1 rounded-[24px] px-2 pb-[9px]"
-          initial={{ y: 40, opacity: 0, filter: "blur(8px)" }}
-          animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
+          initial={{ y: 40, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
           transition={{ type: "spring", bounce: 0.2, duration: 0.9, delay: 0.15 }}
         >
           {items.map((it) => (

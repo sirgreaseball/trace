@@ -20,9 +20,9 @@ export type Pose = {
 };
 
 const COLORS: [string, string][] = [
-  ["#ff7a3c", "#ff2f6d"],
-  ["#c8adff", "#6c47ff"],
-  ["#4beed6", "#1f8fff"],
+  ["#ff6a14", "#e8124f"],
+  ["#9a5cff", "#4f22e0"],
+  ["#0fcf9f", "#0672f5"],
 ];
 const RADII = [1, 0.755, 0.51];
 const TUBE = 0.105;
@@ -57,8 +57,8 @@ export class RingsEngine {
   constructor(private canvas: HTMLCanvasElement, start: Pose) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: "high-performance" });
     this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.05;
+    this.renderer.toneMapping = THREE.NeutralToneMapping;
+    this.renderer.toneMappingExposure = 1.0;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.pmrem = new THREE.PMREMGenerator(this.renderer);
     this.scene.environment = this.pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
@@ -86,7 +86,7 @@ export class RingsEngine {
 
     const [a, b] = COLORS[i].map((c) => new THREE.Color(c));
     const u = { uP: { value: 0 }, uGlow: { value: 0 } };
-    const fillMat = new THREE.MeshPhysicalMaterial({ roughness: 0.28, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.16, envMapIntensity: 1.2, sheen: 0.4, sheenColor: b });
+    const fillMat = new THREE.MeshPhysicalMaterial({ roughness: 0.34, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.12, envMapIntensity: 0.8, iridescence: 0.12, iridescenceIOR: 1.4 });
     fillMat.onBeforeCompile = (sh) => {
       Object.assign(sh.uniforms, u, { uA: { value: a }, uB: { value: b } });
       sh.vertexShader = VERT_HEAD + sh.vertexShader.replace("#include <begin_vertex>", "#include <begin_vertex>\nvArc = arc;");
@@ -101,15 +101,15 @@ export class RingsEngine {
 
     const track = new THREE.Mesh(
       new THREE.TorusGeometry(radius, TUBE * 0.94, 24, 240),
-      new THREE.MeshPhysicalMaterial({ color: b, roughness: 0.6, transparent: true, opacity: 0.13, depthWrite: false }),
+      new THREE.MeshPhysicalMaterial({ color: b, roughness: 0.6, transparent: true, opacity: 0.16, depthWrite: false }),
     );
 
     // A coarse, invisible copy to raycast against: cheap hover tests.
     const proxy = new THREE.Mesh(new THREE.TorusGeometry(radius, TUBE * 1.6, 8, 72), new THREE.MeshBasicMaterial({ visible: false }));
 
     const capGeo = new THREE.SphereGeometry(TUBE, 32, 24);
-    const capA = new THREE.Mesh(capGeo, new THREE.MeshPhysicalMaterial({ color: a, roughness: 0.28, clearcoat: 1, clearcoatRoughness: 0.16, envMapIntensity: 1.2 }));
-    const capB = new THREE.Mesh(capGeo, new THREE.MeshPhysicalMaterial({ color: b, roughness: 0.28, clearcoat: 1, clearcoatRoughness: 0.16, envMapIntensity: 1.2 }));
+    const capA = new THREE.Mesh(capGeo, new THREE.MeshPhysicalMaterial({ color: a, roughness: 0.34, clearcoat: 1, clearcoatRoughness: 0.12, envMapIntensity: 0.8 }));
+    const capB = new THREE.Mesh(capGeo, new THREE.MeshPhysicalMaterial({ color: b, roughness: 0.34, clearcoat: 1, clearcoatRoughness: 0.12, envMapIntensity: 0.8 }));
 
     // Start at twelve o'clock and run clockwise, like a watch.
     const root = new THREE.Group();

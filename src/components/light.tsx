@@ -161,11 +161,15 @@ export function TeamLight({
     io.observe(canvas);
 
     let raf = 0;
+    let drawnDark: boolean | null = null;
     const t0 = performance.now();
     const frame = (now: number) => {
       raf = requestAnimationFrame(frame);
       if (!visible || document.hidden) return;
       const { sources: list, dark: dk } = live.current;
+      // Mid theme reveal: draw once in the new colours, then hold still.
+      if (document.documentElement.classList.contains("theming") && drawnDark === dk) return;
+      drawnDark = dk;
       const { l, c, alpha } = tone(dk);
       // Pointer follows on a soft spring-ish lerp, so the light drifts after you.
       ptr.x += (ptr.tx - ptr.x) * 0.045;

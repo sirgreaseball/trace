@@ -74,7 +74,7 @@ export function Rings({
                 "--p": p,
                 "--a": a,
                 "--b": b,
-                "--track": `color-mix(in oklab, ${b} 16%, transparent)`,
+                "--track": `color-mix(in oklab, ${b} 22%, transparent)`,
                 transition: `--p ${follow ? 420 : 1500 + i * 180}ms var(--spring)`,
                 filter: glow ? `drop-shadow(0 0 ${w * 0.6}px color-mix(in oklab, ${b} 45%, transparent))` : undefined,
               } as CSSProperties

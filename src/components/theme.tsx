@@ -42,15 +42,21 @@ export function setTheme(next: Theme, from?: { x: number; y: number }) {
   const x = from?.x ?? innerWidth - 40;
   const y = from?.y ?? 30;
   const r = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+  // While the circle grows, the new page is a live picture: any CSS colour
+  // transition or WebGL frame inside it repaints the whole screen every frame.
+  // Hold them still until the reveal is done; the reveal itself is the animation.
+  const root = document.documentElement;
+  root.classList.add("theming");
   const vt = document.startViewTransition(apply);
   vt.ready
     .then(() =>
-      document.documentElement.animate(
+      root.animate(
         { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${r}px at ${x}px ${y}px)`] },
         { duration: 820, easing: "cubic-bezier(0.23, 1, 0.32, 1)", pseudoElement: "::view-transition-new(root)" },
       ),
     )
     .catch(() => {});
+  vt.finished.finally(() => root.classList.remove("theming"));
 }
 
 export function useTheme() {

@@ -83,9 +83,9 @@ function Panel({ onClose, items, workspaceId }: { onClose: () => void; items: Sp
       />
       <motion.div
         className="glass-strong relative flex max-h-[min(78dvh,680px)] w-full max-w-[660px] flex-col overflow-hidden rounded-[26px]"
-        initial={{ opacity: 0, scale: 0.975, y: -8, filter: "blur(8px)" }}
-        animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
-        exit={{ opacity: 0, scale: 0.985, filter: "blur(4px)", transition: { duration: 0.12 } }}
+        initial={{ opacity: 0, scale: 0.975, y: -8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.985, transition: { duration: 0.12 } }}
         transition={{ type: "spring", bounce: 0.1, duration: 0.34 }}
       >
         <div className="flex items-center gap-3 px-5">

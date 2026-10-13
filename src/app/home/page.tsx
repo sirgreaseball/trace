@@ -5,12 +5,14 @@ import type { CSSProperties } from "react";
 import { Wordmark } from "@/components/brand";
 import { CreateWorkspace } from "@/components/create-workspace";
 import { Icon } from "@/components/icons";
+import { JoinWithCode } from "@/components/invite";
 import { TeamLight } from "@/components/light";
 import { Rings } from "@/components/rings";
 import { ThemeToggle } from "@/components/theme";
 import { Avatars } from "@/components/ui";
 import { loadWorkspace, myProfile, myWorkspaces, type WorkspaceView } from "@/lib/data";
 import { ago, firstName, plural, requestTime } from "@/lib/format";
+import { supabaseServer } from "@/lib/supabase/server";
 import { health } from "@/lib/trace";
 import type { Role } from "@/lib/types";
 
@@ -78,6 +80,8 @@ function TeamCard({ r, now, i }: { r: Row; now: number; i: number }) {
 
 export default async function HomePage() {
   await connection();
+  // Teams that added this person by email before they had an account.
+  await (await supabaseServer()).rpc("claim_invites");
   const [{ profile }, mine] = await Promise.all([myProfile(), myWorkspaces()]);
   const now = requestTime();
   const views = await Promise.all(mine.map((w) => loadWorkspace(w.ws.id)));
@@ -127,7 +131,10 @@ export default async function HomePage() {
                   : "Start a workspace for your team, or open the invite link your team lead sent you."}
             </p>
           </div>
-          <CreateWorkspace />
+          <div className="flex flex-wrap gap-2">
+            <JoinWithCode />
+            <CreateWorkspace />
+          </div>
         </div>
 
         {!profile.github && building.length > 0 && (
@@ -169,8 +176,8 @@ export default async function HomePage() {
             </div>
             <div className="pane p-7">
               <Icon name="link" size={26} className="text-ink-3" />
-              <p className="t-headline mt-4">Got an invite?</p>
-              <p className="mt-1.5 text-[14px] text-ink-2">Open the link your team lead sent you. It looks like …/join/… and adds you straight to the team.</p>
+              <p className="t-headline mt-4">Joining a team, or mentoring one?</p>
+              <p className="mt-1.5 text-[14px] text-ink-2">Ask the team lead for their team code and press Join with a code, or open the invite link they sent you. Mentors can join as many teams as they guide.</p>
             </div>
           </section>
         )}

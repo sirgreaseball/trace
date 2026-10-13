@@ -260,8 +260,8 @@ function Nav({ onHow, onMentors }: { onHow: () => void; onMentors: () => void })
   return (
     <header className="fixed inset-x-0 top-[max(12px,env(safe-area-inset-top))] z-40 flex justify-center px-3">
       <motion.nav
-        initial={{ y: -30, opacity: 0, filter: "blur(8px)" }}
-        animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
+        initial={{ y: -30, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
         transition={{ type: "spring", bounce: 0.2, duration: 1, delay: 0.3 }}
         className="glass flex h-[52px] w-full max-w-[880px] items-center gap-1 rounded-[20px] pr-1.5 pl-3"
         aria-label="Main"

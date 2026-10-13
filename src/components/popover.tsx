@@ -41,9 +41,9 @@ export function Popover({
             aria-label={label}
             className={`glass-strong absolute top-[calc(100%+8px)] z-50 rounded-[20px] p-1.5 ${align === "right" ? "right-0" : "left-0"}`}
             style={{ width, transformOrigin: align === "right" ? "top right" : "top left" }}
-            initial={{ opacity: 0, scale: 0.94, y: -4, filter: "blur(6px)" }}
-            animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
-            exit={{ opacity: 0, scale: 0.96, filter: "blur(4px)", transition: { duration: 0.14 } }}
+            initial={{ opacity: 0, scale: 0.94, y: -4 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.14 } }}
             transition={{ type: "spring", bounce: 0.16, duration: 0.38 }}
           >
             {children(() => setOpen(false))}
