@@ -171,6 +171,8 @@ export function Splash() {
       if (!mod.canRunGL()) return setGl("off");
       try {
         engine = new mod.RingsEngine(c, poseAt(0, keys));
+        // Tell the pointer when it is over a ring, so it can open into a grab ring.
+        engine.onHover = (i) => window.dispatchEvent(new CustomEvent("trace:grab", { detail: i >= 0 }));
         setGl("on");
         update();
       } catch {

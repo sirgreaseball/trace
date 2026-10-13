@@ -844,6 +844,35 @@ dialog.sheet:not([open])::backdrop {
   }
 }
 
+/* The splash's own pointer (CursorFX) replaces the system cursor, so there is only ever one. */
+html.pointer-fx,
+html.pointer-fx * {
+  cursor: none !important;
+}
+.pointer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  background: light-dark(rgb(21 21 27 / 0.4), rgb(255 255 255 / 0.55));
+  box-shadow: 0 0 0 1px light-dark(rgb(255 255 255 / 0.55), rgb(0 0 0 / 0.25));
+  transition:
+    background-color 240ms var(--ease-out),
+    box-shadow 240ms var(--ease-out),
+    opacity 200ms var(--ease-out);
+  will-change: transform, width, height;
+}
+.pointer[data-mode="button"] {
+  background: light-dark(rgb(21 21 27 / 0.07), rgb(255 255 255 / 0.12));
+  box-shadow: 0 0 0 1px light-dark(rgb(21 21 27 / 0.12), rgb(255 255 255 / 0.18)), 0 8px 22px -10px rgb(0 0 0 / 0.3);
+}
+.pointer[data-mode="grab"] {
+  background: light-dark(rgb(255 255 255 / 0.18), rgb(255 255 255 / 0.08));
+  box-shadow: inset 0 0 0 2px light-dark(rgb(21 21 27 / 0.55), rgb(255 255 255 / 0.75));
+}
+.pointer[data-mode="grabbing"] {
+  background: light-dark(rgb(21 21 27 / 0.55), rgb(255 255 255 / 0.7));
+}
+
 /* During the theme reveal nothing transitions on its own (see setTheme). */
 .theming *,
 .theming *::before,

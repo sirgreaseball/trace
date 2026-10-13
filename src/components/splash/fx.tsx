@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useMotionTemplate, useMotionValue, useSpring } from "motion/react";
+import { motion, useMotionTemplate, useMotionValue, useSpring, useTransform } from "motion/react";
 import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
 
 const noop = () => () => {};
@@ -14,27 +14,32 @@ const noop = () => () => {};
 
 const canPlay = () => typeof window !== "undefined" && matchMedia("(pointer: fine)").matches && !matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-/** Leans toward the pointer when it comes close, springs home when it leaves. */
-export function Magnetic({ children, strength = 0.32, reach = 70, className = "" }: { children: ReactNode; strength?: number; reach?: number; className?: string }) {
+/**
+ * Leans a few pixels toward the pointer while the pointer is on it, the way
+ * an iPad button lifts under the cursor. Only the hovered element moves, and
+ * never more than `max` pixels, so neighbours can't run into each other.
+ */
+export function Magnetic({ children, strength = 0.16, max = 5, className = "" }: { children: ReactNode; strength?: number; max?: number; className?: string }) {
   const ref = useRef<HTMLSpanElement>(null);
-  const x = useSpring(0, { stiffness: 220, damping: 17, mass: 0.6 });
-  const y = useSpring(0, { stiffness: 220, damping: 17, mass: 0.6 });
-  useEffect(() => {
-    if (!canPlay()) return;
-    const move = (e: PointerEvent) => {
-      const r = ref.current?.getBoundingClientRect();
-      if (!r) return;
-      const dx = e.clientX - (r.left + r.width / 2);
-      const dy = e.clientY - (r.top + r.height / 2);
-      const near = Math.abs(dx) < r.width / 2 + reach && Math.abs(dy) < r.height / 2 + reach;
-      x.set(near ? dx * strength : 0);
-      y.set(near ? dy * strength : 0);
-    };
-    window.addEventListener("pointermove", move, { passive: true });
-    return () => window.removeEventListener("pointermove", move);
-  }, [x, y, strength, reach]);
+  const x = useSpring(0, { stiffness: 260, damping: 20, mass: 0.5 });
+  const y = useSpring(0, { stiffness: 260, damping: 20, mass: 0.5 });
+  const clamp = (v: number) => Math.max(-max, Math.min(max, v));
   return (
-    <motion.span ref={ref} style={{ x, y }} className={`inline-flex ${className}`}>
+    <motion.span
+      ref={ref}
+      style={{ x, y }}
+      className={`inline-flex ${className}`}
+      onPointerMove={(e) => {
+        if (e.pointerType !== "mouse") return;
+        const r = ref.current!.getBoundingClientRect();
+        x.set(clamp((e.clientX - (r.left + r.width / 2)) * strength));
+        y.set(clamp((e.clientY - (r.top + r.height / 2)) * strength));
+      }}
+      onPointerLeave={() => {
+        x.set(0);
+        y.set(0);
+      }}
+    >
       {children}
     </motion.span>
   );
@@ -79,44 +84,133 @@ export function Tilt({ children, max = 7, radius = 30, className = "", style }: 
   );
 }
 
-/** A ring that trails the cursor and swells over anything clickable; clicks throw out rings. */
+type PointerMode = "dot" | "button" | "grab" | "grabbing";
+
+/**
+ * The splash's pointer, in place of the system cursor (one cursor, never two).
+ * A soft dot that tracks the mouse exactly; over a button it grows into a
+ * highlight hugging the button's shape, iPad style; over the 3D rings it opens
+ * into a ring you can grab. A click on empty space throws out three rings.
+ */
 export function CursorFX() {
-  const x = useSpring(-200, { stiffness: 520, damping: 38, mass: 0.45 });
-  const y = useSpring(-200, { stiffness: 520, damping: 38, mass: 0.45 });
-  const scale = useSpring(1, { stiffness: 260, damping: 20 });
   const on = useSyncExternalStore(noop, canPlay, () => false);
+  const fast = { stiffness: 1500, damping: 90, mass: 0.3 };
+  const morph = { stiffness: 380, damping: 32, mass: 0.6 };
+  const cx = useSpring(-100, fast);
+  const cy = useSpring(-100, fast);
+  const w = useSpring(16, morph);
+  const h = useSpring(16, morph);
+  const r = useSpring(8, morph);
+  const scale = useSpring(1, { stiffness: 520, damping: 26 });
+  const left = useTransform([cx, w], ([c, s]: number[]) => c - s / 2);
+  const top = useTransform([cy, h], ([c, s]: number[]) => c - s / 2);
+  const [mode, setMode] = useState<PointerMode>("dot");
+  const [shown, setShown] = useState(false);
   const [bursts, setBursts] = useState<{ id: number; x: number; y: number }[]>([]);
+
   useEffect(() => {
     if (!on) return;
+    const root = document.documentElement;
+    root.classList.add("pointer-fx");
     let seq = 0;
+    let target: HTMLElement | null = null;
+    let grab = false;
+    let dragging = false;
+    const at = { x: -100, y: -100 };
+    const pick = (el: Element | null) => (el?.closest?.("a,button,[role=button]") as HTMLElement | null) ?? null;
+
+    const place = () => {
+      if (dragging) {
+        setMode("grabbing");
+        w.set(28);
+        h.set(28);
+        r.set(14);
+        cx.set(at.x);
+        cy.set(at.y);
+      } else if (target) {
+        // Hug the button, leaning a few pixels after the pointer.
+        const b = target.getBoundingClientRect();
+        const pad = 6;
+        const radius = parseFloat(getComputedStyle(target).borderTopLeftRadius) || 12;
+        const midX = b.left + b.width / 2;
+        const midY = b.top + b.height / 2;
+        const lean = (v: number, mid: number) => Math.max(-4, Math.min(4, (v - mid) * 0.08));
+        setMode("button");
+        w.set(b.width + pad * 2);
+        h.set(b.height + pad * 2);
+        r.set(Math.min(radius + pad, (b.height + pad * 2) / 2));
+        cx.set(midX + lean(at.x, midX));
+        cy.set(midY + lean(at.y, midY));
+      } else {
+        setMode(grab ? "grab" : "dot");
+        w.set(grab ? 46 : 16);
+        h.set(grab ? 46 : 16);
+        r.set(grab ? 23 : 8);
+        cx.set(at.x);
+        cy.set(at.y);
+      }
+    };
     const move = (e: PointerEvent) => {
-      x.set(e.clientX);
-      y.set(e.clientY);
-      scale.set((e.target as Element | null)?.closest?.("a,button,[data-hover]") ? 2.1 : 1);
+      if (e.pointerType !== "mouse") return;
+      at.x = e.clientX;
+      at.y = e.clientY;
+      target = dragging ? null : pick(e.target as Element);
+      setShown(true);
+      place();
+    };
+    // The page scrolls under a still pointer: find what is under it now.
+    const scroll = () => {
+      if (at.x < 0) return;
+      target = dragging ? null : pick(document.elementFromPoint(at.x, at.y));
+      place();
+    };
+    const ring = (e: Event) => {
+      grab = (e as CustomEvent<boolean>).detail;
+      place();
     };
     const down = (e: PointerEvent) => {
-      if ((e.target as Element | null)?.closest?.("a,button,input,textarea,select")) return;
+      if (e.pointerType !== "mouse") return;
+      scale.set(0.84);
+      if (grab) {
+        dragging = true;
+        target = null;
+        place();
+        return;
+      }
+      if ((e.target as Element | null)?.closest?.("a,button,input,textarea,select,[role=button]")) return;
       const id = ++seq;
       setBursts((b) => [...b.slice(-3), { id, x: e.clientX, y: e.clientY }]);
       setTimeout(() => setBursts((b) => b.filter((q) => q.id !== id)), 1300);
     };
-    const leave = () => {
-      x.set(-200);
-      y.set(-200);
+    const up = () => {
+      scale.set(1);
+      if (dragging) {
+        dragging = false;
+        place();
+      }
     };
+    const leave = () => setShown(false);
     window.addEventListener("pointermove", move, { passive: true });
     window.addEventListener("pointerdown", down, { passive: true });
-    document.documentElement.addEventListener("pointerleave", leave);
+    window.addEventListener("pointerup", up, { passive: true });
+    window.addEventListener("scroll", scroll, { passive: true });
+    window.addEventListener("trace:grab", ring);
+    root.addEventListener("pointerleave", leave);
     return () => {
+      root.classList.remove("pointer-fx");
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerdown", down);
-      document.documentElement.removeEventListener("pointerleave", leave);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("scroll", scroll);
+      window.removeEventListener("trace:grab", ring);
+      root.removeEventListener("pointerleave", leave);
     };
-  }, [on, x, y, scale]);
+  }, [on, cx, cy, w, h, r, scale]);
+
   if (!on) return null;
   return (
-    <div className="pointer-events-none fixed inset-0 z-[60]" aria-hidden>
-      <motion.div style={{ x, y, scale }} className="absolute -mt-[15px] -ml-[15px] size-[30px] rounded-full border-[1.5px] border-[color-mix(in_oklab,var(--ink)_45%,transparent)] bg-[color-mix(in_oklab,var(--accent)_8%,transparent)]" />
+    <div className="pointer-events-none fixed inset-0 z-[70]" aria-hidden>
+      <motion.div data-mode={mode} className="pointer" style={{ x: left, y: top, width: w, height: h, borderRadius: r, scale, opacity: shown ? 1 : 0 }} />
       {bursts.map((b) => (
         <span key={b.id}>
           {["var(--r1)", "var(--r2)", "var(--r3)"].map((c, i) => (
