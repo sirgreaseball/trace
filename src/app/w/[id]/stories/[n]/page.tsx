@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import { ViewTransition, type CSSProperties, type ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { Icon } from "@/components/icons";
 import { MessageRow } from "@/components/message";
 import { Rings } from "@/components/rings";
@@ -79,9 +79,7 @@ export default async function StoryPage(props: PageProps<"/w/[id]/stories/[n]">)
             <StateLabel state={t.state} />
             <PriorityTag priority={t.story.priority} />
           </div>
-          <ViewTransition name={`story-${t.story.id}`} share="morph">
             <h1 className="t-title max-w-[22ch]">{t.story.title}</h1>
-          </ViewTransition>
           {t.story.narrative && <p className="mt-5 max-w-[60ch] text-[18px] leading-relaxed tracking-[-0.01em] text-ink-2">{t.story.narrative}</p>}
           <div className="mt-5 flex flex-wrap items-center gap-3 text-[13px] text-ink-3">
             Written by {t.story.created_by ? firstName(memberName(v.members, t.story.created_by)) : "someone"} on {day(t.story.created_at)}
@@ -106,7 +104,7 @@ export default async function StoryPage(props: PageProps<"/w/[id]/stories/[n]">)
         </div>
       </header>
 
-      <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="grid grid-cols-1 gap-12 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="min-w-0 space-y-12">
           <Step n={1} i={1} title="What done means" done={criteria.length > 0 && t.state === "traced"}>
             {criteria.length ? (

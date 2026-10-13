@@ -73,7 +73,7 @@ export function StoryForm({ workspaceId, story, trigger }: { workspaceId: string
             </label>
             <input id="title" name="title" required maxLength={200} defaultValue={story?.title} className="field" placeholder="Report a lost item" autoFocus />
           </div>
-          <fieldset className="grid gap-3 sm:grid-cols-3">
+          <fieldset className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <legend className="label">The user story</legend>
             <label className="text-[12px] text-ink-3">
               As a…

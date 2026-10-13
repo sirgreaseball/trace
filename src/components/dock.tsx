@@ -19,7 +19,7 @@ export function Dock({ items, tail, isActive }: { items: DockItem[]; tail: DockI
         <motion.div
           onMouseMove={(e) => mouseX.set(e.clientX)}
           onMouseLeave={() => mouseX.set(Infinity)}
-          className="glass flex h-[62px] items-end gap-1 rounded-[24px] px-2 pb-[9px]"
+          className="glass-strong flex h-[62px] items-end gap-1 rounded-[24px] px-2 pb-[9px]"
           initial={{ y: 40, opacity: 0, filter: "blur(8px)" }}
           animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
           transition={{ type: "spring", bounce: 0.2, duration: 0.9, delay: 0.15 }}
@@ -90,7 +90,7 @@ function PhoneBar({ items, isActive }: { items: DockItem[]; isActive: (href: str
   return (
     <>
       <nav aria-label="Workspace" className="print-hide fixed inset-x-0 bottom-0 z-40 sm:hidden">
-        <div className="glass flex items-stretch justify-around rounded-none px-1 pt-1.5 pb-[max(8px,env(safe-area-inset-bottom))]">
+        <div className="glass-strong flex items-stretch justify-around rounded-none px-1 pt-1.5 pb-[max(8px,env(safe-area-inset-bottom))]">
           {main.map((it) => {
             const on = isActive(it.href);
             return (

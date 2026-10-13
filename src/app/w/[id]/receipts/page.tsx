@@ -29,7 +29,7 @@ export default async function ReceiptsPage(props: PageProps<"/w/[id]/receipts">)
   return (
     <>
       <PageTitle title="Receipts" sub="One pass per person. Every line on a receipt is a commit, task or decision you can open, and anyone on the team can dispute a line." />
-      <div className="grid gap-12 lg:grid-cols-[minmax(0,520px)_1fr]">
+      <div className="grid grid-cols-1 gap-12 lg:grid-cols-[minmax(0,520px)_1fr]">
         <Wallet passes={passes} base={`/w/${id}`} />
         <aside className="space-y-8 lg:pt-2">
           <section className="pane p-6">

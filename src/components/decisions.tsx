@@ -51,7 +51,7 @@ export function DecisionForm({ workspaceId, stories, decisions, presetStory }: {
             </label>
             <input id="d-alt" name="alternatives" maxLength={2000} className="field" placeholder="Firebase; Express + MySQL" />
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="label" htmlFor="d-story">
                 Story

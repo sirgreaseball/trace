@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import { ViewTransition } from "react";
+
 import { Icon } from "@/components/icons";
 import { Barcode, Pass } from "@/components/pass";
 import { PrintButton, ReceiptLines } from "@/components/receipt";
@@ -34,10 +34,9 @@ export default async function ReceiptPage(props: PageProps<"/w/[id]/receipts/[us
         <Icon name="back" size={15} /> Receipts
       </Link>
 
-      <div className="grid gap-12 lg:grid-cols-[minmax(0,500px)_1fr]">
+      <div className="grid grid-cols-1 gap-12 lg:grid-cols-[minmax(0,500px)_1fr]">
         <div className="mx-auto w-full max-w-[500px]">
           <div className="print-hide relative z-10">
-            <ViewTransition name={`pass-${user}`} share="morph">
               <div>
                 <Pass
                   p={{
@@ -52,7 +51,6 @@ export default async function ReceiptPage(props: PageProps<"/w/[id]/receipts/[us
                   style={{ height: 236 }}
                 />
               </div>
-            </ViewTransition>
           </div>
 
           <article className="slip relative -mt-4 mx-3 px-6 pt-10 pb-12 sm:px-8" aria-label={`Contribution receipt for ${member.profile.name}`}>

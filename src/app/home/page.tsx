@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
-import { ViewTransition, type CSSProperties } from "react";
+import type { CSSProperties } from "react";
 import { Wordmark } from "@/components/brand";
 import { CreateWorkspace } from "@/components/create-workspace";
 import { Icon } from "@/components/icons";
@@ -33,9 +33,7 @@ function TeamCard({ r, now, i }: { r: Row; now: number; i: number }) {
           <div className="relative flex h-full items-end justify-between p-5">
             <span className="min-w-0">
               <span className="mono mb-1.5 inline-block rounded-[7px] bg-[light-dark(rgb(255_255_255/0.75),rgb(0_0_0/0.35))] px-1.5 py-0.5 text-[11px] font-semibold backdrop-blur">{v.ws.key}</span>
-              <ViewTransition name={`ws-${v.ws.id}`} share="morph">
                 <span className="block truncate text-[20px] font-[650] tracking-[-0.03em]">{v.ws.name}</span>
-              </ViewTransition>
             </span>
             <Rings values={[h.coverage.total ? h.coverage.traced / h.coverage.total : 0, v.tasks.length ? done / v.tasks.length : 0, v.commits.length ? linked / v.commits.length : 0]} size={74} width={0.13} delay={300 + i * 90} />
           </div>
@@ -143,7 +141,7 @@ export default async function HomePage() {
         {mentoring.length > 0 && (
           <section className="mb-14">
             <h2 className="t-section mb-4 px-1">Teams you mentor</h2>
-            <ul className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
               {mentoring.map((r, i) => (
                 <TeamCard key={r.v.ws.id} r={r} now={now} i={i} />
               ))}
@@ -154,7 +152,7 @@ export default async function HomePage() {
         {building.length > 0 && (
           <section>
             {mentoring.length > 0 && <h2 className="t-section mb-4 px-1">Your own workspaces</h2>}
-            <ul className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
               {building.map((r, i) => (
                 <TeamCard key={r.v.ws.id} r={r} now={now} i={i} />
               ))}
@@ -163,7 +161,7 @@ export default async function HomePage() {
         )}
 
         {rows.length === 0 && (
-          <section className="grid gap-5 md:grid-cols-2">
+          <section className="grid grid-cols-1 gap-5 md:grid-cols-2">
             <div className="pane p-7">
               <Icon name="plus" size={26} className="text-ink-3" />
               <p className="t-headline mt-4">Start a workspace</p>

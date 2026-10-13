@@ -50,7 +50,7 @@ export function CreateWorkspace() {
       </button>
       <Modal open={open} onClose={() => setOpen(false)} title="New workspace">
         <form onSubmit={create} className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-[1fr_96px]">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_96px]">
             <div>
               <label className="label" htmlFor="nw-name">
                 Project name

@@ -91,7 +91,7 @@ export default async function Today(props: PageProps<"/w/[id]">) {
         <Pulse data={slim} now={now} start={start} />
       </div>
 
-      <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
+      <div className="mt-10 grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
         <div className="space-y-10">
           {!mentor && (
             <Section title="For you" className="rise" style={{ "--i": 3 } as CSSProperties}>

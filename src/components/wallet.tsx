@@ -2,7 +2,7 @@
 
 import { motion } from "motion/react";
 import Link from "next/link";
-import { useState, ViewTransition } from "react";
+import { useState } from "react";
 import { Pass, type PassData } from "./pass";
 
 const PEEK = 92;
@@ -31,11 +31,9 @@ export function Wallet({ passes, base }: { passes: (PassData & { uid: string })[
             onHoverStart={() => setHover(i)}
           >
             <Link href={`${base}/receipts/${p.uid}`} className="block rounded-[26px] outline-offset-4" onFocus={() => setHover(i)} aria-label={`${p.name}'s receipt, ${Math.round(p.share * 100)}% of the work`}>
-              <ViewTransition name={`pass-${p.uid}`} share="morph">
                 <div>
                   <Pass p={p} style={{ height: HEIGHT }} />
                 </div>
-              </ViewTransition>
             </Link>
           </motion.li>
         );

@@ -82,7 +82,7 @@ export function Settings({
     <div className="max-w-[760px] space-y-10">
       <Block title="Workspace" sub={owner ? "The repository is read from GitHub's public API." : "Only the team lead can change these."}>
         <form onSubmit={saveWorkspace} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-[1fr_96px]">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_96px]">
             <div>
               <label className="label" htmlFor="ws-name">
                 Name
@@ -119,7 +119,7 @@ export function Settings({
 
       <Block id="profile" title="You" sub="Your GitHub username is how your commits land on your receipt.">
         <form onSubmit={saveProfile} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="label" htmlFor="p-name">
                 Name

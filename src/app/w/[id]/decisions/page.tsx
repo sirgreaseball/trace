@@ -46,7 +46,7 @@ export default async function DecisionsPage(props: PageProps<"/w/[id]/decisions"
                 </span>
                 These two may disagree. Both talk about {c.shared.slice(0, 3).map((w) => `“${w}”`).join(", ")}.
               </p>
-              <div className="grid gap-2 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {[c.later, c.earlier].map((x) => (
                   <a key={x.id} href={`#d-${x.number}`} className="row rounded-[16px] bg-surface px-4 py-3 shadow-[0_0_0_1px_var(--line)]">
                     <span className="ref text-[var(--r2)]">D-{x.number}</span>

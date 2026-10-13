@@ -35,7 +35,7 @@ export default async function VivaPage(props: PageProps<"/w/[id]/viva">) {
         )}
       </PageTitle>
 
-      <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_280px]">
+      <div className="grid grid-cols-1 gap-12 lg:grid-cols-[minmax(0,1fr)_280px]">
         <Viva key={target.user_id} workspaceId={id} questions={questions} ai={aiEnabled()} />
         <aside>
           <p className="t-section mb-3 px-1">Who built what</p>

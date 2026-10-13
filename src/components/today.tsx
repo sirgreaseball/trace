@@ -112,7 +112,7 @@ export function Pulse({ data, now, start }: { data: TraceData; now: number; star
 
   return (
     <section aria-label="Project pulse" className="glass relative overflow-hidden rounded-[32px] p-5 sm:p-8">
-      <div className="grid items-center gap-7 md:grid-cols-[auto_1fr] md:gap-10">
+      <div className="grid grid-cols-1 items-center gap-7 md:grid-cols-[auto_1fr] md:gap-10">
         <div className="mx-auto md:mx-0">
           <Rings
             values={rows.map((r) => share(r.a, r.b))}

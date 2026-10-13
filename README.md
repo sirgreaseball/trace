@@ -12,20 +12,23 @@
 
 | | |
 | --- | --- |
-| **Trace grid** | A live requirements traceability matrix. Every story shows its tasks, linked commits, decisions and people, and whether it is untraced, planned, building or traced. Export it as CSV. |
+| **Today** | Three rings: stories traced end to end, tasks done and commits linked. Drag **Rewind** back through the timeline and every number, ring and share is recomputed for that day, or press play to watch the project rebuild itself. |
+| **Trace** | A live requirements traceability matrix. Every story shows its chain of tasks, commits (in the colour of whoever made them), decisions and people, and whether it is untraced, planned, building or traced. A people view shows who worked on what. Export it as CSV. |
 | **Commit linking** | A commit that names an item (`LF-12: add photo upload`) links itself. For the rest, Trace suggests a match from the words in the message and the files it touched; a teammate confirms or rejects it. |
-| **Receipts** | One receipt per person, printed like a thermal receipt. Every line is evidence you can open: a commit, a finished task, a decision. Anyone can dispute a line; the team lead resolves it and the receipt keeps both sides. No line is written by AI. |
+| **Receipts** | One pass per person, stacked like a wallet; open one and its receipt prints out. Every line is evidence you can open: a commit, a finished task, a decision. Anyone can dispute a line; the team lead resolves it and the receipt keeps both sides. No line is written by AI. |
 | **Decisions** | A log of the team's choices with the reasons and the alternatives. Type `/decide` in chat to log one. Trace flags pairs of decisions that may contradict each other. |
-| **Viva practice** | Questions about the code, decisions and requirements you did *not* work on, answered from the team's own record. Practice only: nothing is graded or shared. |
-| **Ask** | Ask "why did we switch to email alerts?" and get the matching decisions, chat messages, stories and commits, best match first. With an AI key set, a short answer that cites them. |
-| **Mentor view** | Every team you mentor on one page: how much is traced, how evenly the work is spread, who went quiet, open disputes and conflicting decisions. |
+| **Viva practice** | Flashcards on the code, decisions and requirements you did *not* work on, answered from the team's own record. Practice only: nothing is graded or shared. |
+| **Ask** | Press Ctrl K (⌘K on a Mac) anywhere to jump to any story, task or decision, or ask "why did we switch to email alerts?" and get the matching decisions, chat messages, stories and commits, best match first. With an AI key set, a short answer that cites them. |
+| **Mentor view** | Every team you mentor on one page, each card lit in its team's colours: how much is traced, how evenly the work is spread, who went quiet, open disputes and conflicting decisions. |
+
+Each workspace is lit by its own team: every member is a pool of colour, sized by their share of the work, so a balanced team glows evenly and a team carried by one person is mostly one colour.
 
 <p align="center">
-  <img src=".github/media/overview.webp" alt="Workspace overview with the stories-over-time view" width="100%" />
+  <img src=".github/media/overview.webp" alt="Today: the three rings, the Rewind timeline and the team's share of the work" width="100%" />
 </p>
 
 <p align="center">
-  <img src=".github/media/receipt.webp" alt="A contribution receipt with a disputed line" width="49%" />
+  <img src=".github/media/receipt.webp" alt="A receipt pass with its printed slip of evidence" width="49%" />
   <img src=".github/media/mentor.webp" alt="Mentor view across five teams" width="49%" />
 </p>
 
@@ -44,7 +47,8 @@ All of this lives in one pure module, [`src/lib/trace.ts`](src/lib/trace.ts), sh
 
 - **Next.js 16** (App Router, React 19, TypeScript) and **Tailwind CSS 4**.
 - **Supabase**: Postgres with row-level security on every table, auth, realtime chat and full-text search (`search_evidence`).
-- **three.js** for the landing page: a few hundred threads drawn as screen-space ribbons, positioned entirely on the GPU, morphing through seven formations as you scroll, with bloom and supersampling. **Lenis** for smooth scrolling.
+- **three.js** for the landing page: the three rings as glossy objects lit by a studio environment, closing as you scroll, leaning toward the pointer and spinning when dragged. **Lenis** smooths the scroll that drives every scene.
+- **Motion** for spring physics (the dock, sheets, the board, the island), React view transitions between pages, and a small WebGL shader for each team's light.
 - Optional AI through free tiers (Groq, then Gemini, then OpenRouter) behind one OpenAI-compatible call. Every AI feature has a plain fallback, so the app works with no keys at all.
 
 ### Security model
@@ -78,7 +82,7 @@ In Supabase, turn off **Authentication > Sign In / Providers > Email > Confirm e
 
 ```
 src/app            routes: landing, sign-in, workspace pages, API routes
-src/components     UI, the thread engine (splash/engine.ts) and the landing page
+src/components     UI, the 3D rings (splash/rings3d.ts) and the landing page
 src/lib            the trace engine, data loading, AI and GitHub helpers
 supabase           schema, policies and demo data
 scripts            demo data generator

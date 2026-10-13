@@ -114,7 +114,7 @@ export function Board({
       </div>
 
       <LayoutGroup>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           {COLS.map((col) => {
             const list = shown.filter((t) => t.status === col.status).sort((a, b) => b.number - a.number);
             const hot = over === col.status && dragging !== null;

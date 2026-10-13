@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ViewTransition, type CSSProperties } from "react";
+import type { CSSProperties } from "react";
 import { CsvButton } from "@/components/csv-button";
 import { Icon } from "@/components/icons";
 import { Segmented } from "@/components/rings";
@@ -176,9 +176,7 @@ function StoryRow({ t, keyPrefix, href, profile }: { t: StoryTrace; keyPrefix: s
       <span className="min-w-0">
         <span className="flex items-center gap-2">
           <span className="ref shrink-0">{ref(keyPrefix, t.story.number)}</span>
-          <ViewTransition name={`story-${t.story.id}`} share="morph">
             <span className="truncate text-[15px] font-[580] tracking-[-0.01em]">{t.story.title}</span>
-          </ViewTransition>
         </span>
         <span className="mt-0.5 block truncate text-[13px] text-ink-3">{t.story.narrative || "No narrative yet"}</span>
       </span>

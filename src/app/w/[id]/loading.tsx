@@ -7,7 +7,7 @@ export default function Loading() {
         <div className="skeleton h-4 w-[min(560px,90%)]" />
       </div>
       <div className="skeleton h-72 rounded-[32px]" />
-      <div className="grid gap-8 lg:grid-cols-[1.45fr_1fr]">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1.45fr_1fr]">
         <div className="skeleton h-64 rounded-[22px]" />
         <div className="skeleton h-64 rounded-[22px]" />
       </div>
