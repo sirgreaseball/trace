@@ -45,6 +45,13 @@ export class RingsEngine {
   private tilt = { x: 0, y: 0, tx: 0, ty: 0 };
   private spin = { a: 0, v: 0, dragging: false, lastX: 0, lastT: 0 };
   private hovered = -1;
+  private near = 0; // 0..1, how much the pointer is over the rings
+  private focus = -1; // a ring the page asked to highlight
+  private onFocus = (e: Event) => {
+    this.focus = (e as CustomEvent<number>).detail;
+    if (this.focus >= 0) this.pulse[this.focus] = 1;
+    this.wake();
+  };
   private pulse = [0, 0, 0];
   private raf = 0;
   private quiet = 0;
@@ -72,6 +79,7 @@ export class RingsEngine {
     RADII.forEach((r, i) => this.rings.push(this.makeRing(r, i)));
     this.target = { ...start, p: [...start.p] };
     this.pose = { ...start, p: [...start.p] };
+    window.addEventListener("trace:ring", this.onFocus);
     this.resize();
     this.wake();
   }
@@ -242,17 +250,20 @@ export class RingsEngine {
     const vh = 2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * this.camera.position.z;
     const vw = vh * this.camera.aspect;
     const fit = Math.min(vw, vh) * 0.31;
-    this.group.position.set((P.x * vw) / 2, (-P.y * vh) / 2, 0);
+    // Parallax: the whole set drifts after the pointer, and lifts apart when the pointer is on it.
+    this.near += ((hover >= 0 ? 1 : 0) - this.near) * (1 - Math.exp(-dt * 6));
+    moved += Math.abs((hover >= 0 ? 1 : 0) - this.near);
+    this.group.position.set((P.x * vw) / 2 + this.tilt.x * fit * 0.1, (-P.y * vh) / 2 - this.tilt.y * fit * 0.1, 0);
     this.group.scale.setScalar(P.s * fit);
-    this.group.rotation.set(P.rx + this.tilt.y * 0.22, P.ry + this.tilt.x * 0.3 + this.spin.a, P.rz);
+    this.group.rotation.set(P.rx + this.tilt.y * 0.42, P.ry + this.tilt.x * 0.58 + this.spin.a, P.rz);
 
     this.rings.forEach((r, i) => {
       const p = Math.max(0, Math.min(1, P.p[i]));
       r.u.uP.value = p;
       this.pulse[i] *= Math.exp(-dt * 3.2);
-      const glow = (hover === i ? 0.22 : 0) + this.pulse[i] * 0.35;
+      const glow = (hover === i || this.focus === i ? 0.26 : 0) + this.pulse[i] * 0.35;
       r.u.uGlow.value += (glow - r.u.uGlow.value) * (1 - Math.exp(-dt * 10));
-      r.root.position.z = (1 - i) * P.spread;
+      r.root.position.z = (1 - i) * (P.spread + this.near * 0.34);
       const swell = 1 + this.pulse[i] * 0.06;
       r.root.scale.set(-swell, swell, swell);
       const show = p > 0.003;
@@ -273,6 +284,7 @@ export class RingsEngine {
 
   dispose() {
     this.disposed = true;
+    window.removeEventListener("trace:ring", this.onFocus);
     cancelAnimationFrame(this.raf);
     this.scene.traverse((o) => {
       const m = o as THREE.Mesh;

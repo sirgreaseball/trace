@@ -1,11 +1,12 @@
 "use client";
 
-import { motion, useTransform, type MotionValue } from "motion/react";
+import { motion, useMotionValue, useSpring, useTransform, type MotionValue } from "motion/react";
 import { createContext, useContext, type ReactNode } from "react";
 import { TeamLight } from "../light";
 import { Pass } from "../pass";
 import { Rings } from "../rings";
 import { personColor } from "../ui";
+import { Tilt } from "./fx";
 
 /* Every scene reads its chapter's scroll progress, 0..1, from here. */
 export const Chapters = createContext<MotionValue<number>[]>([]);
@@ -154,7 +155,8 @@ export function ChainScene({ p }: { p: MotionValue<number> }) {
     },
   ];
   return (
-    <div className="glass-strong pointer-events-auto relative w-full max-w-[520px] rounded-[30px] p-6 sm:p-7">
+    <Tilt radius={30} className="w-full max-w-[520px]">
+    <div className="glass-strong relative w-full rounded-[30px] p-6 sm:p-7">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="ref">LF-4</p>
@@ -179,6 +181,7 @@ export function ChainScene({ p }: { p: MotionValue<number> }) {
         </div>
       </div>
     </div>
+    </Tilt>
   );
 }
 
@@ -194,17 +197,19 @@ export function CloseLegend({ p }: { p: MotionValue<number> }) {
   return (
     <div className="pointer-events-auto mt-10 grid max-w-[460px] grid-cols-3 gap-4">
       {rows.map((r, i) => (
-        <Count key={r.label} p={p} {...r} start={[0.25, 0.2, 0.3][i]} />
+        <Count key={r.label} p={p} {...r} i={i} start={[0.25, 0.2, 0.3][i]} />
       ))}
     </div>
   );
 }
 
-function Count({ p, label, total, color, start }: { p: MotionValue<number>; label: string; total: number; color: string; start: number }) {
+function Count({ p, label, total, color, start, i }: { p: MotionValue<number>; label: string; total: number; color: string; start: number; i: number }) {
   const n = useTransform(p, [0.14, 0.82], [Math.round(total * start), total], { clamp: true });
   const text = useTransform(n, (v) => String(Math.round(v)));
+  // Pointing at a count lights up its ring in the 3D set.
+  const ring = (detail: number) => window.dispatchEvent(new CustomEvent("trace:ring", { detail }));
   return (
-    <div>
+    <div data-hover onPointerEnter={() => ring(i)} onPointerLeave={() => ring(-1)} className="press -m-2 cursor-default rounded-[16px] p-2 transition-colors duration-300 hover:bg-[var(--hover)]">
       <p className="flex items-center gap-2 text-[13px] font-[560] text-ink-2">
         <span className="size-2.5 rounded-full" style={{ background: color }} />
         {label}
@@ -230,11 +235,13 @@ export function WalletScene({ p }: { p: MotionValue<number> }) {
     { who: TEAM[1], share: 0.31, stats: { commits: 9, lines: 640, tasks: 6, decisions: 2 } },
     { who: TEAM[2], share: 0.28, stats: { commits: 8, lines: 515, tasks: 4, decisions: 1 } },
   ];
+  // The pointer over the wallet spreads the passes further, like thumbing through them.
+  const spread = useSpring(0, { stiffness: 140, damping: 18 });
   return (
-    <div className="pointer-events-auto relative w-full max-w-[460px]">
+    <div className="pointer-events-auto relative w-full max-w-[460px]" onPointerEnter={() => spread.set(1)} onPointerLeave={() => spread.set(0)}>
       <div className="relative h-[330px]">
         {passes.map((x, i) => (
-          <PassCard key={x.who.name} fan={fan} i={i} n={passes.length}>
+          <PassCard key={x.who.name} fan={fan} spread={spread} i={i} n={passes.length}>
             <Pass
               p={{ name: x.who.name, hue: x.who.hue, share: x.share, even: 0.25, stats: x.stats, serial: `LF-${x.who.short.toUpperCase().slice(0, 4)}` }}
               style={{ height: 210 }}
@@ -269,13 +276,15 @@ export function WalletScene({ p }: { p: MotionValue<number> }) {
   );
 }
 
-function PassCard({ fan, i, n, children }: { fan: MotionValue<number>; i: number; n: number; children: ReactNode }) {
-  const y = useTransform(fan, [0, 1], [i * 14, i * 62]);
+function PassCard({ fan, spread, i, n, children }: { fan: MotionValue<number>; spread: MotionValue<number>; i: number; n: number; children: ReactNode }) {
+  const y = useTransform([fan, spread], ([f, s]: number[]) => i * 14 + i * 48 * f + i * 26 * s);
   const scale = useTransform(fan, [0, 1], [1 - (n - 1 - i) * 0.04, 1]);
-  const rotate = useTransform(fan, [0, 1], [0, (i - 1) * -1.5]);
+  const rotate = useTransform([fan, spread], ([f, s]: number[]) => (i - 1) * (-1.5 * f - 2.5 * s));
   return (
     <motion.div className="absolute inset-x-0 top-0" style={{ y, scale, rotate, zIndex: i + 1 }}>
-      {children}
+      <motion.div whileHover={{ y: -12, scale: 1.015 }} transition={{ type: "spring", stiffness: 260, damping: 20 }} data-hover>
+        {children}
+      </motion.div>
     </motion.div>
   );
 }
@@ -287,7 +296,11 @@ const BARS = [3, 0, 5, 2, 7, 4, 0, 6, 8, 3, 0, 4, 9, 5, 2, 7, 6, 0, 8, 10, 4, 6,
 const BAR_WHO = [0, 1, 2, 3, 1, 0, 2, 1, 0, 3, 2, 1, 0, 2, 1, 3, 0, 1, 2, 0, 1, 3, 2, 0, 1, 2, 0, 3, 1, 2];
 
 export function RewindScene({ p }: { p: MotionValue<number> }) {
-  const at = useTransform(p, [0.12, 0.85], [0, 1], { clamp: true });
+  const scrolled = useTransform(p, [0.12, 0.85], [0, 1], { clamp: true });
+  // Hovering the timeline takes the playhead from the scroll: the pointer is the scrubber.
+  const hover = useMotionValue(-1);
+  const wanted = useTransform([scrolled, hover], ([s, h]: number[]) => (h >= 0 ? h : s));
+  const at = useSpring(wanted, { stiffness: 170, damping: 24 });
   const left = useTransform(at, (v) => `${(v * 100).toFixed(2)}%`);
   const traced = useTransform(at, (v) => String(Math.round(1 + v * 9)));
   const pct = useTransform(at, (v) => `${Math.round(8 + v * 92)}%`);
@@ -309,7 +322,15 @@ export function RewindScene({ p }: { p: MotionValue<number> }) {
           </p>
         </div>
       </div>
-      <div className="relative mt-8 h-24">
+      <div
+        data-hover
+        className="relative mt-8 h-24 cursor-ew-resize"
+        onPointerMove={(e) => {
+          const r = e.currentTarget.getBoundingClientRect();
+          hover.set(Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)));
+        }}
+        onPointerLeave={() => hover.set(-1)}
+      >
         <div className="absolute inset-x-0 bottom-0 flex h-20 items-end">
           {BARS.map((b, i) => (
             <Bar key={i} at={at} i={i} n={BARS.length} h={b} who={BAR_WHO[i]} />
@@ -342,11 +363,20 @@ function Bar({ at, i, n, h, who }: { at: MotionValue<number>; i: number; n: numb
 // 5. Practice: a flashcard flips with the scroll; Ask answers below.
 
 export function PracticeScene({ p }: { p: MotionValue<number> }) {
-  const rotateY = useTransform(p, [0.24, 0.5], [0, 180], { clamp: true, ease: (t) => t * t * (3 - 2 * t) });
+  const scrolled = useTransform(p, [0.24, 0.5], [0, 180], { clamp: true, ease: (t) => t * t * (3 - 2 * t) });
+  // A click flips it too, on top of wherever the scroll has it.
+  const flip = useSpring(0, { stiffness: 110, damping: 15 });
+  const rotateY = useTransform([scrolled, flip], ([s, f]: number[]) => s + f);
   return (
     <div className="pointer-events-auto w-full max-w-[520px]">
       <div className="[perspective:1400px]">
-        <motion.div className="relative grid [transform-style:preserve-3d]" style={{ rotateY }}>
+        <motion.div
+          data-hover
+          className="relative grid cursor-pointer [transform-style:preserve-3d]"
+          style={{ rotateY }}
+          onClick={() => flip.set(flip.get() > 90 ? 0 : 180)}
+          title="Click to flip"
+        >
           <div className="glass-strong col-start-1 row-start-1 flex min-h-[260px] flex-col rounded-[30px] p-7 [backface-visibility:hidden]">
             <p className="flex items-center gap-2 text-[13px] text-ink-3">
               <span className="chip">Code</span>
@@ -401,7 +431,8 @@ export function MentorScene({ p }: { p: MotionValue<number> }) {
     <div className="pointer-events-auto grid w-full grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
       {TEAMS.map((t, i) => (
         <Reveal key={t.key} p={p} at={-0.26 + i * 0.06} len={0.22} dy={70} className={i === 4 ? "max-lg:hidden" : ""}>
-          <div className="pane overflow-hidden">
+          <Tilt max={9} radius={34}>
+          <div className="pane overflow-hidden" data-hover>
             <div className="relative h-24 overflow-hidden">
               <TeamLight still sources={t.hues.map((h, k) => ({ hue: h, weight: t.w[k] }))} className="absolute inset-0 scale-125" />
               <div className="relative flex h-full items-end justify-between p-3.5">
@@ -415,6 +446,7 @@ export function MentorScene({ p }: { p: MotionValue<number> }) {
               <p className={`mt-2.5 text-[12px] leading-snug ${t.flag === "Looks healthy" ? "text-ink-3" : "text-warn"}`}>{t.flag}</p>
             </div>
           </div>
+          </Tilt>
         </Reveal>
       ))}
     </div>

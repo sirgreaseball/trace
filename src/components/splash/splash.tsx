@@ -10,6 +10,7 @@ import { TeamLight } from "../light";
 import { Rings } from "../rings";
 import { ThemeToggle } from "../theme";
 import type { Pose, RingsEngine } from "./rings3d";
+import { CursorFX, Magnetic, MagneticText } from "./fx";
 import { ChainScene, Chapters, CloseLegend, Copy, Exit, MentorScene, PracticeScene, Reveal, RewindScene, useChapter, WalletScene } from "./scenes";
 
 /*
@@ -214,6 +215,7 @@ export function Splash() {
         )}
 
         <Nav onHow={() => go("how")} onMentors={() => go("mentors")} />
+        <CursorFX />
 
         <main className="pointer-events-none relative z-10 [&_a]:pointer-events-auto [&_button]:pointer-events-auto">
           <Hero onHow={() => go("how")} />
@@ -300,19 +302,21 @@ function Hero({ onHow }: { onHow: () => void }) {
           <p className="rise mb-6 text-[15px] font-[600] text-ink-2" style={{ "--i": 3 } as CSSProperties}>
             For student software teams and their mentors
           </p>
-          <h1 className="t-display rise text-[clamp(54px,8.4vw,128px)]" style={{ "--i": 4 } as CSSProperties}>
-            Every requirement, traced.
-          </h1>
+          <MagneticText text="Every requirement, traced." className="t-display rise text-[clamp(54px,8.4vw,128px)]" style={{ "--i": 4 } as CSSProperties} />
           <p className="rise mt-7 max-w-[30em] text-[18px] leading-relaxed text-ink-2 sm:text-[19px]" style={{ "--i": 6 } as CSSProperties}>
             Stories, tasks, commits and decisions, tied to the people who did the work. Your team can always answer who built this, why it was done that way, and what&apos;s left.
           </p>
           <div className="rise mt-9 flex flex-wrap items-center gap-3" style={{ "--i": 8 } as CSSProperties}>
-            <Link href="/enter" className="btn btn-accent btn-lg">
-              Try the demo <Icon name="arrow" size={16} />
-            </Link>
-            <button onClick={onHow} className="btn btn-lg">
-              See how it works
-            </button>
+            <Magnetic>
+              <Link href="/enter" className="btn btn-accent btn-lg">
+                Try the demo <Icon name="arrow" size={16} />
+              </Link>
+            </Magnetic>
+            <Magnetic>
+              <button onClick={onHow} className="btn btn-lg">
+                See how it works
+              </button>
+            </Magnetic>
           </div>
         </motion.div>
         <motion.p style={{ opacity }} className="rise absolute bottom-8 left-1/2 hidden -translate-x-1/2 items-center gap-3 text-[13px] text-ink-3 md:flex" aria-hidden>
@@ -381,14 +385,23 @@ function Final() {
         </Reveal>
         <Reveal p={p} at={-0.3} len={0.3}>
           <div className="flex flex-wrap justify-center gap-3">
-            <form action="/auth/demo" method="post">
-              <input type="hidden" name="as" value="student" />
-              <button className="btn btn-accent btn-lg">Try the demo as a student</button>
-            </form>
-            <form action="/auth/demo" method="post">
-              <input type="hidden" name="as" value="mentor" />
-              <button className="btn btn-lg">See the mentor view</button>
-            </form>
+            <Magnetic>
+              <form action="/auth/demo" method="post">
+                <input type="hidden" name="as" value="student" />
+                <button className="btn btn-accent btn-lg">Try the demo as a student</button>
+              </form>
+            </Magnetic>
+            <Magnetic>
+              <form action="/auth/demo" method="post">
+                <input type="hidden" name="as" value="mentor" />
+                <button className="btn btn-lg">See the mentor view</button>
+              </form>
+            </Magnetic>
+            <Magnetic>
+              <Link href="/enter" className="btn btn-primary btn-lg">
+                Sign up free
+              </Link>
+            </Magnetic>
           </div>
           <p className="t-caption mt-4">Fictional teams. Edit anything: the demo resets every six hours.</p>
         </Reveal>

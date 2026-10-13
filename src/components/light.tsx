@@ -59,14 +59,14 @@ void main(){
   for(int i=0;i<${MAX};i++){ if(i>=n) break;
     vec2 c=vec2(pos[i].x*asp,pos[i].y);
     c+=0.06*vec2(sin(t*0.13+float(i)*1.7),cos(t*0.11+float(i)*2.3));
-    c+=(vec2(ptr.x*asp,ptr.y)-c)*0.06*ptrOn;
+    c+=(vec2(ptr.x*asp,ptr.y)-c)*0.11*ptrOn;
     vec2 d=q-c; float r=rad[i]*mix(1.,asp,0.35);
     float f=exp(-dot(d,d)/(r*r));
     acc+=col[i]*f; sum+=f;
   }
   vec3 color=acc/max(sum,1e-4);
   float a=(1.-exp(-sum*1.6))*alpha;
-  vec2 pd=q-vec2(ptr.x*asp,ptr.y); a+=0.12*ptrOn*exp(-dot(pd,pd)/0.05)*alpha;
+  vec2 pd=q-vec2(ptr.x*asp,ptr.y); a+=0.2*ptrOn*exp(-dot(pd,pd)/0.04)*alpha;
   a+=(hash(gl_FragCoord.xy+t)-.5)/255.;
   a=clamp(a,0.,1.);
   gl_FragColor=vec4(pow(color,vec3(1./2.2))*a,a);
