@@ -52,7 +52,8 @@ function keyframes(mobile: boolean): { t: number; pose: Pose }[] {
         { t: 4.05, pose: { ...corner, p: [0.12, 0.08, 0.15] } },
         { t: 4.6, pose: { ...corner, p: full } },
         { t: 6.5, pose: { ...corner, p: full } },
-        { t: 7.0, pose: { x: 0, y: 0.06, s: 0.84, rx: -0.25, ry: 0, rz: Math.PI * 2, spread: 0, p: full } },
+        // Lands a little early: a collapsing address bar can end the page just short of t = 7.
+        { t: 6.9, pose: { x: 0, y: 0.06, s: 0.84, rx: -0.25, ry: 0, rz: Math.PI * 2, spread: 0, p: full } },
       ]
     : [
         { t: 0, pose: { x: 0.46, y: 0.06, s: 1.12, rx: -0.55, ry: 0.42, rz: -0.12, spread: 0, p: open } },
@@ -112,8 +113,27 @@ export function Splash() {
     let engine: RingsEngine | null = null;
     let alive = true;
     let geo = sections.map(() => ({ top: 0, h: 1 }));
+    const hole = document.querySelector<HTMLElement>("[data-hole]");
+    // The last pose fills the hole the final screen leaves for the rings, so the
+    // headline, rings and buttons sit evenly on any screen. 1.105 is the outer
+    // ring's radius plus its tube, and 0.31 the engine's fit (both in rings3d.ts).
+    const fitFinal = () => {
+      const c = canvas.current;
+      const sec = hole?.closest("section");
+      if (!hole || !c || !sec) return;
+      const r = hole.getBoundingClientRect();
+      const s = sec.getBoundingClientRect();
+      // At the end of the page, the section's bottom meets the bottom of the screen.
+      const cy = window.innerHeight - s.height + (r.top - s.top) + r.height / 2;
+      // Fill 90% of the hole; a tilted ring is about 5% shorter than it is wide.
+      const radius = 0.45 * Math.min(r.height / 0.95, r.width);
+      const last = keys[keys.length - 1].pose;
+      last.y = (cy - c.clientHeight / 2) / (c.clientHeight / 2);
+      last.s = radius / (1.105 * 0.31 * Math.min(c.clientWidth, c.clientHeight));
+    };
     const measure = () => {
       geo = sections.map((el) => ({ top: el.getBoundingClientRect().top + window.scrollY, h: el.offsetHeight }));
+      fitFinal();
     };
 
     const update = () => {
@@ -144,6 +164,7 @@ export function Splash() {
     window.addEventListener("resize", onResize);
     const ro = new ResizeObserver(onResize);
     ro.observe(document.body);
+    if (hole) ro.observe(hole);
 
     const move = (e: PointerEvent) => engine?.pointer(e.clientX, e.clientY);
     const leave = () => engine?.leave();
@@ -253,7 +274,6 @@ export function Splash() {
           </Scene>
           <Mentors />
           <Final />
-          <Footer />
         </main>
       </div>
     </Chapters.Provider>
@@ -379,13 +399,16 @@ function Mentors() {
 
 function Final() {
   const p = useChapter(7);
+  // The last screen holds the footer too, so the page ends on exactly this frame,
+  // and the 3D rings settle into the hole between the headline and the buttons.
   return (
-    <section data-ch className="relative">
-      <div className="page flex h-[100svh] min-h-[560px] flex-col items-center justify-between pt-[13vh] pb-[9vh] text-center">
-        <Reveal p={p} at={-0.5} len={0.3} dy={60}>
-          <h2 className="t-display text-[clamp(48px,7vw,104px)]">Your project, traced.</h2>
+    <section data-ch className="relative flex h-[100svh] min-h-[560px] flex-col">
+      <div className="page flex w-full flex-1 flex-col items-center gap-[3vh] pt-[15vh] pb-[5vh] text-center">
+        <Reveal p={p} at={-0.6} len={0.3} dy={60}>
+          <h2 className="t-display text-[clamp(44px,min(7vw,11vh),104px)]">Your project, traced.</h2>
         </Reveal>
-        <Reveal p={p} at={-0.3} len={0.3}>
+        <div data-hole className="w-full flex-1" aria-hidden />
+        <Reveal p={p} at={-0.42} len={0.28}>
           <div className="flex flex-wrap justify-center gap-3">
             <Magnetic>
               <form action="/auth/demo" method="post">
@@ -408,6 +431,7 @@ function Final() {
           <p className="t-caption mt-4">Fictional teams. Edit anything: the demo resets every six hours.</p>
         </Reveal>
       </div>
+      <Footer />
     </section>
   );
 }
